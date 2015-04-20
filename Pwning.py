@@ -12,6 +12,7 @@
 # Version : 0.1
 
 import telnetlib
+import socket
 from struct import *
 
 class Telnet(telnetlib.Telnet):
@@ -31,6 +32,10 @@ class Payload:
 		# declare target here
 		self.host = ['localhost','1.1.1.1']
 		self.port = 1337
+
+	# gethostbyname func
+	def gethostbyname(self,hostname):
+		return socket.gethostbyname(hostname)
 
 	# utilities method that support your make your payload easier
 	def p32(self,value):
