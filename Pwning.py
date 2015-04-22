@@ -32,6 +32,7 @@ class Payload:
 		# declare target here
 		self.host = ['localhost','1.1.1.1']
 		self.port = 1337
+		self.mode = 0 # x86 , define target platform
 
 	# gethostbyname func
 	def gethostbyname(self,hostname):
@@ -49,6 +50,12 @@ class Payload:
 
 	def up64(self,value):
 		return unpack('<Q',value)[0]
+
+	def p(self,value):
+		return self.p32(value) if self.mode == 0 else self.p64(value)
+
+	def up(self,value):
+		return self.up32(value) if self.mode == 0 else self.up64(value)
 
 	# building format string payload support 32 and 64 bit :)
 	# you can ovewrite this method and make it better
@@ -94,9 +101,8 @@ class Payload:
 	#		0x41414141, # pop ebx; pop ecx; pop edx; ret
 	#		0x43434343
 	# ]
-	def prepareRopChain(self,ropchain,mode = 0):
-		p = (self.p32 if mode == 0 else self.p64)
-		return ''.join([p(rop) for rop in ropchain])
+	def prepareRopChain(self,ropchain):
+		return ''.join([self.p(rop) for rop in ropchain])
 
 	# main payload goes here
 	def buildPayload(self):
