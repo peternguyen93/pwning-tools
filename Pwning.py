@@ -9,10 +9,11 @@
 # - To install this module, you just copy this module to /usr/lib/python2.7 or python 3.1
 
 # Author : Peternguyen
-# Version : 0.1
+# Version : 0.2
 
 import telnetlib
 import socket
+from ctypes import *
 from struct import *
 
 class Telnet(telnetlib.Telnet):
@@ -20,11 +21,18 @@ class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
 		telnetlib.Telnet.__init__(self,host,port)
 	# make easier when you want to send raw data to server
-	def writeRawData(self,data):
+	def send(self,data):
 		return self.get_socket().send(data)
 
-	def recvRawData(self,size):
+	def recv(self,size):
 		return self.get_socket().recv(size)
+
+	def writeRawData(self,data):
+		return self.send(data)
+
+	def recvRawData(self,size):
+		return self.recv(size)
+
 
 class Payload:
 	# building my Payload here
@@ -33,6 +41,7 @@ class Payload:
 		self.host = ['localhost','1.1.1.1']
 		self.port = 1337
 		self.mode = 0 # x86 , define target platform
+		# self.conn = Telnet(self.host[0],self.port)
 
 	# gethostbyname func
 	def gethostbyname(self,hostname):
@@ -51,24 +60,35 @@ class Payload:
 	def up64(self,value):
 		return unpack('<Q',value)[0]
 
+	# using pack,unpack simplier by defining mode value
 	def p(self,value):
 		return self.p32(value) if self.mode == 0 else self.p64(value)
 
 	def up(self,value):
 		return self.up32(value) if self.mode == 0 else self.up64(value)
 
+	# build your ropchain like this
+	# ropchain = [
+	#		your rop chain goes here
+	#		0x41414141, # pop ebx; pop ecx; pop edx; ret
+	#		0x43434343
+	# ]
+	def pRop(self,ropchain):
+		return ''.join([self.p(rop) for rop in ropchain])
+
 	# building format string payload support 32 and 64 bit :)
 	# you can ovewrite this method and make it better
 	def build32FormatStringBug(self,address,write_address,offset,pad = ''):
 		fmt = pad
 		for i in xrange(4):
-			fmt += pack('<I',write_addressess + i)
+			fmt += pack('<I',address + i)
 
 		length_pad = len(fmt)
 		start = 0
 		if c_byte(write_address & 0xff).value < length_pad:
 			start += 0x100
 
+		# generate write string
 		for i in xrange(0,4):
 			byte = (write_address >> (8*i)) & 0xff
 			byte += start
@@ -80,7 +100,7 @@ class Payload:
 
 	# this method require you must find a stable format string and offset that make stack offset doesn't change.
 	def build64FormatStringBug(self,address,write_address,offset,pad = ''):
-		fmt = pad
+		fmt = ''
 		next = 0
 		last = len(fmt) # length pad
 		for i in xrange(8):
@@ -90,27 +110,18 @@ class Payload:
 			last = byte
 			next += 0x100
 		# fmt+= 'A'*20 # you may custom here
+		fmt+= pad # stable pad must be appended here
 		for i in xrange(8):
 			fmt+= self.p64(address + i)
 
 		return fmt
 
-	# build your ropchain like this
-	# ropchain = [
-	#		your rop chain goes here
-	#		0x41414141, # pop ebx; pop ecx; pop edx; ret
-	#		0x43434343
-	# ]
-	def prepareRopChain(self,ropchain):
-		return ''.join([self.p(rop) for rop in ropchain])
-
-	# main payload goes here
-	def buildPayload(self):
-		pass
-		
-	# other method goes here
-	def leakLibcSystemAddr(self):
-		pass
+	# dynamic buildFormatStringBug
+	def buildFMT(self,address,write_address,offset,pad = ''):
+		if self.mode: # for 64 bits mode
+			return self.build64FormatStringBug(address,write_address,offset,pad)
+		else: # for 32 bits mode
+			return self.build32FormatStringBug(address,write_address,offset,pad)
 
 	# ----------------------------
 	# adding your new method here
@@ -118,7 +129,6 @@ class Payload:
 
 	# main method
 	def pwnTarget(self):
-		conn = Telnet(self.host[0],self.port)
 		# ..... snip .....
 		# when i exploit a bin with NX was enabled
 		# print '[+] leak_func() :',hex(leak_func_addr)
@@ -126,4 +136,4 @@ class Payload:
 		# print "[+] '/bin/sh' :",hex(bin_sh_addr)
 		# ...... snip ......
 		print '[+] Pwned Shell.'
-		conn.interact() # pwn the shell
+		self.conn.interact() # pwn the shell
