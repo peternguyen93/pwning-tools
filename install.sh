@@ -9,6 +9,7 @@ if [ -d "$PYTHON2" ]; then
 elif [ -d "$PYTHON3" ]; then
 	echo "Found Python 3"
 	PYTHON="$PYTHON3"
+else
+	exit 1
 fi
-
-sudo cp Shellcode.py Pwning.py $PYTHON
+sudo cp Shellcode.py Pwn.py $PYTHON
