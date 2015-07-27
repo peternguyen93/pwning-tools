@@ -63,25 +63,25 @@ class Pwn():
 		if self.con:
 			return self.con.read_until(value)
 		else:
-			raise Exception('You must set isconnect = True')
+			raise Exception('You must connect() first')
 
 	def write(self,value):
 		if self.con:
 			return self.con.write(value)
 		else:
-			raise Exception('You must set isconnect = True')
+			raise Exception('You must connect() first')
 
 	def send(self,value):
 		if self.con:
 			return self.con.send(value)
 		else:
-			raise Exception('You must set isconnect = True')
+			raise Exception('You must connect() first')
 
 	def recv(self,size):
 		if self.con:
-			return self.con.recive(size)
+			return self.con.recv(size)
 		else:
-			raise Exception('You must set isconnect = True')
+			raise Exception('You must connect() first')
 
 	def io(self):
 		print '[+] Pwned Shell.'
@@ -108,7 +108,7 @@ class Pwn():
 		return self.up32(value) if self.mode == 0 else self.up64(value)
 
 	def pA(self,ropchain):
-		return ''.join([self.p(rop) for rop in ropchain])
+		return ''.join([self.pack(rop) for rop in ropchain])
 
 	# building format string payload support 32 and 64 bit :)
 	# you can ovewrite this method and make it better
