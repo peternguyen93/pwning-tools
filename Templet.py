@@ -5,10 +5,9 @@ from Pwn import *
 # from Shellcode import *
 
 p = Pwn(host='example.com',port=8888)
-# if you want to pwn local
-p = Pwn(isconnect=False)
 
-def ploit():
+def exploit():
+	p.connect()
 	# some ploit code
 	p.pack(0xcafebabe)
 	p.write('A'*4)
@@ -19,6 +18,6 @@ def ploit():
 	print '[+] write() :',hex(write_addr)
 	print '[+] system() :',hex(system_addr)
 
-	p.io()
+	p.io() # interact with socket
 
 exploit()
