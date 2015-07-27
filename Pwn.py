@@ -31,7 +31,6 @@ class Pwn():
 		self.mode = 0 # for x86 mode is default mode
 		self.host = 'localhost'
 		self.port = 8888
-		self.isconnect = True
 		self.con = None
 
 		# user inputs values
@@ -52,14 +51,6 @@ class Pwn():
 					self.port = value
 				else:
 					raise Exception('Unexpected value of self.port')
-			elif key == 'isconnect':
-				if type(value) is type(True):
-					self.isconnect = value
-				else:
-					raise Exception('Unexpected value of self.isconnect')
-
-		if self.isconnect: # allow to connect server (remote exploit)
-			self.con = Telnet(self.host,self.port)
 
 	def connect(self):
 		if not self.con:
@@ -86,7 +77,7 @@ class Pwn():
 		else:
 			raise Exception('You must set isconnect = True')
 
-	def recive(self,size):
+	def recv(self,size):
 		if self.con:
 			return self.con.recive(size)
 		else:
