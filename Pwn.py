@@ -15,12 +15,24 @@ import telnetlib
 from ctypes import *
 from struct import *
 
-class Pwn(telnetlib.Telnet):
+class Telnet(telnetlib.Telnet):
+	def __init__(self,host,port):
+		telnetlib.Telnet.__init__(self,host,port)
+	# make easier when you want to send raw data to server
+	def send(self,data):
+		return self.get_socket().send(data)
+
+	def recv(self,size):
+		return self.get_socket().recv(size)
+
+class Pwn():
 	def __init__(self,**kwargs):
 		# setting default values
 		self.mode = 0 # for x86 mode is default mode
 		self.host = 'localhost'
 		self.port = 8888
+		self.isconnect = True
+		self.con = None
 
 		# user inputs values
 		for key,value in kwargs.iteritems():
@@ -40,15 +52,49 @@ class Pwn(telnetlib.Telnet):
 					self.port = value
 				else:
 					raise Exception('Unexpected value of self.port')
+			elif key == 'isconnect':
+				if type(value) is type(True):
+					self.isconnect = value
+				else:
+					raise Exception('Unexpected value of self.isconnect')
 
-		telnetlib.Telnet.__init__(self,self.host,self.port)
+		if self.isconnect: # allow to connect server (remote exploit)
+			self.con = Telnet(self.host,self.port)
 
-	# make easier when you want to send raw data to server
-	def send(self,data):
-		return self.get_socket().send(data)
+	def connect(self):
+		if not self.con:
+			self.con = Telnet(self.host,self.port)
+		else:
+			raise Exception('You had connected.')
 
-	def recv(self,size):
-		return self.get_socket().recv(size)
+	# wrapper popular send/recive function
+	def read_until(self,value):
+		if self.con:
+			return self.con.read_until(value)
+		else:
+			raise Exception('You must set isconnect = True')
+
+	def write(self,value):
+		if self.con:
+			return self.con.write(value)
+		else:
+			raise Exception('You must set isconnect = True')
+
+	def send(self,value):
+		if self.con:
+			return self.con.send(value)
+		else:
+			raise Exception('You must set isconnect = True')
+
+	def recive(self,size):
+		if self.con:
+			return self.con.recive(size)
+		else:
+			raise Exception('You must set isconnect = True')
+
+	def io(self):
+		print '[+] Pwned Shell.'
+		self.con.interact()
 
 	# utilities method that support you make your payload easier
 	def p32(self,value):
@@ -64,10 +110,10 @@ class Pwn(telnetlib.Telnet):
 		return unpack('<Q',value)[0]
 
 	# using pack,unpack simplier by defining mode value
-	def p(self,value):
+	def pack(self,value):
 		return self.p32(value) if self.mode == 0 else self.p64(value)
 
-	def up(self,value):
+	def unpack(self,value):
 		return self.up32(value) if self.mode == 0 else self.up64(value)
 
 	def pA(self,ropchain):
@@ -119,8 +165,3 @@ class Pwn(telnetlib.Telnet):
 			return self.build64FormatStringBug(address,write_address,offset,pad)
 		else: # for 32 bits mode
 			return self.build32FormatStringBug(address,write_address,offset,pad)
-
-	# interactive with socket
-	def io(self):
-		print '[+] Pwned Shell.'
-		self.interact()
