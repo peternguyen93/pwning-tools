@@ -15,7 +15,7 @@
 # Requires: pyelftools
 
 # Author : Peternguyen
-# Version : 0.3
+# Version : 0.3.1
 
 from ctypes import *
 from struct import *
@@ -25,6 +25,9 @@ from elftools.elf.relocation import RelocationSection
 from elftools.elf.sections import SymbolTableSection
 import telnetlib
 import os
+import json
+
+DEFAULT_LIBC_COLLECTION = os.path.expanduser('~/.libc_collection.json')
 
 class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
@@ -111,15 +114,52 @@ class Pwn():
 		print '[+] Pwned Shell.'
 		self.con.interact()
 
-	# this method helps you calc libc offset
-	def calc_libc_offset(self,libc_path,func2,func1=''):
-		if not func1:
-			func1 = 'system'
+	# get offset between to function if you can leak one of them
+	# puts : 0x7ffff7a84e30
+	# p.get_libc_offset(0x7ffff7a84e30,'puts')
+	# >>> from Pwn import *
+	# >>> p = Pwn()
+	# >>> offset = p.get_libc_offset(0x7ffff7a84e30,'puts')
+	# >>> print hex(offset)
+	# 0x297f0
+	def get_libc_offset(self,func2_addr,func2_name,func1_name='system'):
+		# get offset on own collection
+		if not os.path.exists(DEFAULT_LIBC_COLLECTION):
+			raise Exception('%s not found' % DEFAULT_LIBC_COLLECTION)
+		else:
+			fp = open(DEFAULT_LIBC_COLLECTION,'r')
+			text = fp.read()
+			fp.close()
+			collection = json.loads(text) # load own libc collection
 
+			offset = 0
+			for libc_symbol in collection: # find suitable libc symbol
+				try:
+					func2_offset = libc_symbol['libc_symbol'][func2_name]
+					base_addr = func2_addr - func2_offset
+					if (base_addr & 0xfff) == 0: # founded
+						func1_offset = libc_symbol['libc_symbol'][func1_name]
+						if func2_offset > func1_offset:
+							offset = func2_offset - func1_offset
+						else:
+							offset = func1_offset - func2_offset
+						break
+				except KeyError:
+					pass
+
+			return offset
+
+	# this method helps you calc libc offset from libc.so
+	# >>> offset = p.calc_libc_offset('/lib/x86_64-linux-gnu/libc.so.6','puts')
+	# >>> print hex(offset)
+	# 0x297f0
+	def calc_libc_offset(self,libc_path,func2,func1='system'):
 		if os.path.exists(libc_path):
 			pfile = open(libc_path,'r')
+
+			# can't find any thing calculate it
 			elffile = ELFFile(pfile)
-			
+
 			# dump symbol table
 			symbol_sec = elffile.get_section_by_name(b'.dynsym')
 			# can dump ?
@@ -137,8 +177,10 @@ class Pwn():
 				if func1_addr and func2_addr:
 					break
 
+			offset = func1_addr - func2_addr if func1_addr > func2_addr else func2_addr - func1_addr
+
 			pfile.close()
-			return func1_addr - func2_addr if func1_addr > func2_addr else func2_addr - func1_addr
+			return offset
 
 		return None
 
@@ -245,7 +287,7 @@ class Pwn():
 		else: # for 32 bits mode
 			return self.build32FormatStringBug(address,write_address,offset,pad)
 
-	# dealloaction object
+	# deallocation object
 	def __del__(self):
 		if self.pfile:
 			self.pfile.close()
