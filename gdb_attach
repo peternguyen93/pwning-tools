@@ -1,0 +1,13 @@
+#!/bin/bash
+
+array=()
+pids=$(ps -aux | grep "$1" | awk '{print $2}')
+
+for pid in $pids
+do
+	array+=("$pid")
+done
+
+pid=${array[2]}
+
+sudo gdb --pid="$pid"
