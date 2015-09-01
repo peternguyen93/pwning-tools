@@ -147,7 +147,6 @@ class Pwn():
 		func_addr = 0
 
 		if self.pfile:
-			self.pfile = open(elf_file,'r')
 			elffile = ELFFile(self.pfile)
 
 			arch = elffile.get_machine_arch() # get arch
