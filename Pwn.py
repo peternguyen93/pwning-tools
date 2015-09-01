@@ -8,12 +8,23 @@
 # payload, supports Linux x86 and x86-64, arm will support later.
 # - To install this module, you just copy this module to /usr/lib/python2.7 or python 3.1
 
-# Author : Peternguyen
-# Version : 0.2
+# On this version 0.3 , i will add new feature
+# method that help calc offset between 2 libc function (system and other func)
+# method that help automatic find got address and write value to it
 
-import telnetlib
+# Requires: pyelftools
+
+# Author : Peternguyen
+# Version : 0.3
+
 from ctypes import *
 from struct import *
+from elftools.common.py3compat import bytes2str
+from elftools.elf.elffile import ELFFile
+from elftools.elf.relocation import RelocationSection
+from elftools.elf.sections import SymbolTableSection
+import telnetlib
+import os
 
 class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
@@ -32,25 +43,32 @@ class Pwn():
 		self.host = 'localhost'
 		self.port = 8888
 		self.con = None
+		self.pfile = None
 
 		# user inputs values
 		for key,value in kwargs.iteritems():
 			# setting some instances
-			if key == 'mode':
+			if key.lower() == 'mode':
 				if type(value) is int:
 					self.mode = value
 				else:
 					raise Exception('Unexpected value of self.mode')
-			elif key == 'host':
+			elif key.lower() == 'host':
 				if type(value) is str:
 					self.host = value
 				else:
 					raise Exception('Unexpected value of self.host')
-			elif key == 'port':
+			elif key.lower() == 'port':
 				if type(value) is int:
 					self.port = value
 				else:
 					raise Exception('Unexpected value of self.port')
+			elif key.lower() == 'pfile':
+				if type(value) is str:
+					if os.path.exists(value):
+						self.pfile = open(value,'r')
+					else:
+						raise Exception('File %s not found' % value)
 
 	def connect(self):
 		if not self.con:
@@ -83,9 +101,80 @@ class Pwn():
 		else:
 			raise Exception('You must connect() first')
 
+	def close(self):
+		if self.con:
+			self.con.close()
+		else:
+			raise Exception('You must connect() first')
+
 	def io(self):
 		print '[+] Pwned Shell.'
 		self.con.interact()
+
+	# this method helps you calc libc offset
+	def calc_libc_offset(self,libc_path,func2,func1=''):
+		if not func1:
+			func1 = 'system'
+
+		if os.path.exists(libc_path):
+			pfile = open(libc_path,'r')
+			elffile = ELFFile(pfile)
+			
+			# dump symbol table
+			symbol_sec = elffile.get_section_by_name(b'.dynsym')
+			# can dump ?
+			if not isinstance(symbol_sec, SymbolTableSection):
+				return None
+
+			func1_addr = 0
+			func2_addr = 0
+			for symbol in symbol_sec.iter_symbols():
+				if symbol.name == func1:
+					func1_addr = symbol.entry['st_value'] # get offset of func1
+				if symbol.name == func2:
+					func2_addr = symbol.entry['st_value'] # get offset of func2
+				# collect all neccessary function
+				if func1_addr and func2_addr:
+					break
+
+			pfile.close()
+			return func1_addr - func2_addr if func1_addr > func2_addr else func2_addr - func1_addr
+
+		return None
+
+	# easy way to find got :v
+	def find_got_address(self,func_name):
+		func_addr = 0
+
+		if self.pfile:
+			self.pfile = open(elf_file,'r')
+			elffile = ELFFile(self.pfile)
+
+			arch = elffile.get_machine_arch() # get arch
+
+			# dump symbol table
+			symbol_sec = elffile.get_section_by_name(b'.dynsym')
+			# can dump ?
+			if not isinstance(symbol_sec, SymbolTableSection):
+				return None
+
+			# get reallocation section to dump got table
+			reladyn_name = b'.rel.plt' if arch == 'x86' else b'.rela.plt'
+			reladyn = elffile.get_section_by_name(reladyn_name)
+			# can dump ?
+			if not isinstance(reladyn, RelocationSection):
+				return None
+
+			# find function address in got table
+			for reloc in reladyn.iter_relocations():
+				got_func_name = symbol_sec.get_symbol(reloc['r_info_sym']).name
+				if got_func_name == func_name:
+					func_addr = reloc['r_offset']
+					break
+
+			pfile.close()
+
+		return func_addr
 
 	# utilities method that support you make your payload easier
 	def p32(self,value):
@@ -156,3 +245,8 @@ class Pwn():
 			return self.build64FormatStringBug(address,write_address,offset,pad)
 		else: # for 32 bits mode
 			return self.build32FormatStringBug(address,write_address,offset,pad)
+
+	# dealloaction object
+	def __del__(self):
+		if self.pfile:
+			self.pfile.close()
