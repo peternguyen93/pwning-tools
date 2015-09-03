@@ -15,7 +15,7 @@
 # Requires: pyelftools
 
 # Author : Peternguyen
-# Version : 0.3.1
+# Version : 0.3.2
 
 from ctypes import *
 from struct import *
@@ -26,8 +26,10 @@ from elftools.elf.sections import SymbolTableSection
 import telnetlib
 import os
 import json
+import urllib2
+import urllib
 
-DEFAULT_LIBC_COLLECTION = os.path.expanduser('~/.libc_collection.json')
+LIBC_REPO = 'http://185.52.1.108/libc_find' # own libc repo
 
 class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
@@ -115,8 +117,6 @@ class Pwn():
 		self.con.interact()
 
 	# get offset between to function if you can leak one of them
-	# puts : 0x7ffff7a84e30
-	# p.get_libc_offset(0x7ffff7a84e30,'puts')
 	# >>> from Pwn import *
 	# >>> p = Pwn()
 	# >>> offset = p.get_libc_offset(0x7ffff7a84e30,'puts')
@@ -124,32 +124,24 @@ class Pwn():
 	# 0x297f0
 	def get_libc_offset(self,func2_addr,func2_name,func1_name='system'):
 		# get offset on own collection
-		if not os.path.exists(DEFAULT_LIBC_COLLECTION):
-			raise Exception('%s not found' % DEFAULT_LIBC_COLLECTION)
-		else:
-			fp = open(DEFAULT_LIBC_COLLECTION,'r')
-			text = fp.read()
-			fp.close()
-			collection = json.loads(text) # load own libc collection
+		offset = 0
+		try:
+			form = { # own post request
+				'func_addr' : hex(func2_addr),
+				'func_name' : func2_name,
+				'func2_name' : func1_name
+			}
+			req = urllib2.Request(LIBC_REPO,urllib.urlencode(form)) # getting result
+			res = urllib2.urlopen(req)
+			result = json.loads(res.read())
+			res.close()
 
-			offset = 0
-			for libc_symbol in collection: # find suitable libc symbol
-				try:
-					func2_offset = libc_symbol['libc_symbol'][func2_name]
-					base_addr = func2_addr - func2_offset
-					if (base_addr & 0xfff) == 0: # founded
-						func1_offset = libc_symbol['libc_symbol'][func1_name]
-						if func2_offset > func1_offset:
-							offset = func2_offset - func1_offset
-						else:
-							offset = func1_offset - func2_offset
-						break
-				except KeyError:
-					pass
+			offset = result['offset']
+		except: # handle every exception
+			pass
+		return offset
 
-			return offset
-
-	# this method helps you calc libc offset from libc.so
+	# this method helps you calc local libc.so offset
 	# >>> offset = p.calc_libc_offset('/lib/x86_64-linux-gnu/libc.so.6','puts')
 	# >>> print hex(offset)
 	# 0x297f0
@@ -185,7 +177,10 @@ class Pwn():
 		return None
 
 	# easy way to find got :v
-	def find_got_address(self,func_name):
+	# >>> p = Pwn(pfile='pwn.elf')
+	# >>> p.got('puts')
+	# 0x60008
+	def got(self,func_name):
 		func_addr = 0
 
 		if self.pfile:
