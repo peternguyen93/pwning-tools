@@ -29,7 +29,7 @@ import json
 import urllib2
 import urllib
 
-LIBC_REPO = 'http://185.52.1.108/libc_find' # own libc repo
+LIBC_REPO = 'http://libc.babyphd.net/libc_find' # own libc repo
 
 class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
@@ -131,7 +131,8 @@ class Pwn():
 				'func_name' : func2_name,
 				'func2_name' : func1_name
 			}
-			req = urllib2.Request(LIBC_REPO,urllib.urlencode(form)) # getting result
+			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
+			req = urllib2.Request(LIBC_REPO,urllib.urlencode(form),headers) # getting result
 			res = urllib2.urlopen(req)
 			result = json.loads(res.read())
 			res.close()
