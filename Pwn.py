@@ -146,6 +146,7 @@ class Pwn():
 	# >>> print hex(offset)
 	# 0x297f0
 	def calc_libc_offset(self,libc_path,func2,func1='system'):
+		offset = 0
 		if os.path.exists(libc_path):
 			pfile = open(libc_path,'r')
 
@@ -172,9 +173,8 @@ class Pwn():
 			offset = func1_addr - func2_addr if func1_addr > func2_addr else func2_addr - func1_addr
 
 			pfile.close()
-			return offset
 
-		return None
+		return offset
 
 	# easy way to find got :v
 	# >>> p = Pwn(pfile='pwn.elf')
