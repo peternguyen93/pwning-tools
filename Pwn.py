@@ -209,8 +209,6 @@ class Pwn():
 					func_addr = reloc['r_offset']
 					break
 
-			pfile.close()
-
 		return func_addr
 
 	# utilities method that support you make your payload easier
