@@ -13,3 +13,5 @@ else
 	exit 1
 fi
 sudo cp Shellcode.py Pwn.py $PYTHON
+sudo cp gdb_attach /usr/bin/
+sudo cp sct /usr/bin/
