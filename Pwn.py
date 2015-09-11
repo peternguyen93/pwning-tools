@@ -209,7 +209,7 @@ class Pwn():
 					func_addr = reloc['r_offset']
 					break
 
-		return func_addr
+		return func_addr # adding packing before return value
 
 	# utilities method that support you make your payload easier
 	def p32(self,value):
@@ -280,6 +280,27 @@ class Pwn():
 			return self.build64FormatStringBug(address,write_address,offset,pad)
 		else: # for 32 bits mode
 			return self.build32FormatStringBug(address,write_address,offset,pad)
+
+	#xxd hexdump function
+	def xxd(self,stream):
+		_str = ""
+		i = 0
+		for i,s in enumerate(list(stream)):
+			if i%16 == 0:
+				print "%07x:" % i,
+			print "%02x" % ord(s),
+			_str += s if( ord(s) in range(0x20,0x7f) ) else "."
+			if (i+1)%8 == 0:
+				print "",
+			if (i+1)%16 == 0:
+				print "|  %s" % _str
+				_str = ""
+		if (i+1)%16 != 0:
+			print "   "*(16-((i%16)+1)),
+			if (16-((i%16)+1)) > 8:
+				print "",
+			print "|  %s" % _str
+
 
 	# deallocation object
 	def __del__(self):
