@@ -29,7 +29,7 @@ import json
 import urllib2
 import urllib
 
-LIBC_REPO = 'http://libc.babyphd.net/libc_find' # own libc repo
+LIBC_REPO = 'http://libc.babyphd.net/' # own libc repo
 
 class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
@@ -132,7 +132,31 @@ class Pwn():
 				'func2_name' : func1_name
 			}
 			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
-			req = urllib2.Request(LIBC_REPO,urllib.urlencode(form),headers) # getting result
+			req = urllib2.Request(LIBC_REPO + 'libc_find',urllib.urlencode(form),headers) # getting result
+			res = urllib2.urlopen(req)
+			result = json.loads(res.read())
+			res.close()
+
+			offset = result['offset']
+		except: # handle every exception
+			pass
+		return offset
+
+	# get all possible offset by os_name os_version and arch
+	# >>> loff = p.get_libc_offset_by('system','ubuntu','14.04','i386')
+	# >>> print loff
+	# [261328, 262544, 261904, 263088]
+	def get_libc_offset_by(self,func_name,os_name,os_version,arch):
+		offset = None
+		try:
+			form = { # own post request
+				'func_name' : func_name,
+				'os_name' : os_name,
+				'os_version' : os_version,
+				'arch' : arch
+			}
+			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
+			req = urllib2.Request(LIBC_REPO + 'get_offset_by_os_name',urllib.urlencode(form),headers) # getting result
 			res = urllib2.urlopen(req)
 			result = json.loads(res.read())
 			res.close()
