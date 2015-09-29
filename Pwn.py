@@ -116,6 +116,29 @@ class Pwn():
 		print '[+] Pwned Shell.'
 		self.con.interact()
 
+	# get base libc address from leak address.
+	# >>> from Pwn import *
+	# >>> p = Pwn()
+	# >>> p.get_libc_base_addr('puts',0x7ffff7a84e30)
+	# 140737347932160
+	def get_libc_base_addr(self,func_name,func_addr):
+		offset = 0
+		try:
+			form = { # own post request
+				'leak_addr' : hex(func_addr),
+				'func_name' : func_name,
+			}
+			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
+			req = urllib2.Request(LIBC_REPO + 'get_libc_base_addr',urllib.urlencode(form),headers) # getting result
+			res = urllib2.urlopen(req)
+			result = json.loads(res.read())
+			res.close()
+
+			offset = result['base_addr']
+		except: # handle every exception
+			pass
+		return offset
+
 	# get offset between to function if you can leak one of them
 	# >>> from Pwn import *
 	# >>> p = Pwn()
@@ -156,7 +179,8 @@ class Pwn():
 				'arch' : arch
 			}
 			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
-			req = urllib2.Request(LIBC_REPO + 'get_offset_by_os_name',urllib.urlencode(form),headers) # getting result
+			# getting result
+			req = urllib2.Request(LIBC_REPO + 'get_offset_by_os_name',urllib.urlencode(form),headers)
 			res = urllib2.urlopen(req)
 			result = json.loads(res.read())
 			res.close()
