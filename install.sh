@@ -1,4 +1,4 @@
-#/bin/sh
+#/bin/bash
 PYTHON2="/usr/lib/python2.7"
 PYTHON3="/usr/lib/python3.4"
 PYTHON=""
