@@ -15,7 +15,7 @@ else
 fi
 sudo cp Shellcode.py Pwn.py $PYTHON
 
-if [ "Linux" == "$os_name" ]; then
+if [ "Linux" = "$os_name" ]; then
 	sudo cp gdb_attach /usr/bin/
 	sudo cp sct /usr/bin/
 fi
