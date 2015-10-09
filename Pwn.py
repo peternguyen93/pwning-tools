@@ -134,7 +134,7 @@ class Pwn():
 			result = json.loads(res.read())
 			res.close()
 
-			offset = result['base_addr']
+			offset = result['libc_base_addr']
 		except: # handle every exception
 			pass
 		return offset
