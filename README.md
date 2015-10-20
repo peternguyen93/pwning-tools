@@ -8,3 +8,8 @@ Pwn tools
 
 Requires:
 - pyelftools (pip install pyelftools)
+
+Added:
+- Sublime text snippet : 
+  + copy pwnlib_snippets.sublime-snippet Sublime\ Text\ 2/Packages/User/
+  + create new file py and type pwn + <tab> :)
