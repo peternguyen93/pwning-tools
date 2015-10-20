@@ -8,7 +8,7 @@ from Pwn import *
 p = Pwn()
 
 def exploit():
-	p = p.connect()
+	p.connect()
 
 	raw_input('Debug>')
 
