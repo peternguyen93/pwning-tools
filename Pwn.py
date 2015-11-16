@@ -17,6 +17,8 @@
 # Author : Peternguyen
 # Version : 0.3.2
 
+# /bin/sh -c "echo shell >&4; sh <&4 >&4"
+
 from ctypes import *
 from struct import *
 from elftools.common.py3compat import bytes2str
@@ -87,6 +89,15 @@ class Pwn():
 			return self.con.read_until(value)
 		else:
 			raise Exception('You must connect() first')
+
+	def read_all(self):
+		rc = self.con.recv(1024)
+		while 1:
+			t = self.con.recv(1024)
+			if t == '':
+				break
+			rc += t
+		return rc 
 
 	def write(self,value):
 		if self.con:
@@ -328,6 +339,16 @@ class Pwn():
 			return self.build64FormatStringBug(address,write_address,offset,pad)
 		else: # for 32 bits mode
 			return self.build32FormatStringBug(address,write_address,offset,pad)
+
+	# randomize my buffer :v
+	def rand_buf(self,size,except_bytes=['\x00','\x0a','\x0b','\x0c']):
+		buf = ''
+		for i in xrange(size):
+			b = os.urandom(1)
+			while b in except_bytes:
+				b = os.urandom(1)
+			buf += b
+		return buf
 
 	#xxd hexdump function
 	def xxd(self,stream):
