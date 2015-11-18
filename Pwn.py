@@ -30,6 +30,8 @@ import os
 import json
 import urllib2
 import urllib
+import random
+import string
 
 LIBC_REPO = 'http://libc.babyphd.net/' # own libc repo
 
@@ -51,6 +53,7 @@ class Pwn():
 		self.port = 8888
 		self.con = None
 		self.pfile = None
+		self.sock_file = None
 
 		# user inputs values
 		for key,value in kwargs.iteritems():
@@ -82,6 +85,24 @@ class Pwn():
 			self.con = Telnet(self.host,self.port)
 		else:
 			raise Exception('You had connected.')
+
+	# make socket as file, use with libncurse in service
+	def makefile(self,mode,bufsize=0): # default bufsize = 0 unbuffered
+		if not self.con:
+			raise Exception('You must connect() first')
+		s = self.con.get_socket()
+		self.sock_file = s.makefile(mode,bufsize)
+		return self.sock_file
+
+	# some function work with sock_file
+	def read_file_until(self,end):
+		buf = ''
+		if not self.sock_file:
+			raise Exception('You must makefile() first')
+
+		while not buf.endswith(end):
+			buf += self.sock_file.read(1)
+		return buf
 
 	# wrapper popular send/recive function
 	def read_until(self,value):
@@ -349,6 +370,10 @@ class Pwn():
 				b = os.urandom(1)
 			buf += b
 		return buf
+
+	# random string,number
+	def rand_string(self,N):
+		return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(N))
 
 	#xxd hexdump function
 	def xxd(self,stream):
