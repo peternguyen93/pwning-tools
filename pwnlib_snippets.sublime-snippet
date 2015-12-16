@@ -7,7 +7,13 @@ from Pwn import *
 
 p = Pwn()
 
-def exploit():
+def exploit(**kargs):
+	if kargs.has_key('p'):
+		if kargs['p'].__class__.__name__ == 'Pwn': # is pwn object
+			p = kargs['p']
+	else:
+		global p # use global var
+
 	p.connect()
 
 	raw_input('Debug>')
