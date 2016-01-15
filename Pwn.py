@@ -35,6 +35,21 @@ import string
 
 LIBC_REPO = 'http://libc.babyphd.net/' # own libc repo
 
+def load_auth_key():
+	default_path = os.path.expanduser('~/.libc_collection_authkey')
+	try:
+		if os.path.exists(default_path):
+			'''
+				{'authkey':'1234567890abcbef'}
+			'''
+			file_handle = open(default_path,'r')
+			key = json.load(file_handle)['authkey']
+			file_handle.close()
+			return key
+	except:
+		pass
+	return None
+
 class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
 		telnetlib.Telnet.__init__(self,host,port)
@@ -155,10 +170,14 @@ class Pwn():
 	# 140737347932160
 	def get_libc_base_addr(self,func_name,func_addr):
 		offset = 0
+		authkey = load_auth_key()
+		if not authkey:
+			raise Exception('You must set your authkey in ~/.libc_collection_authkey to use this method')
 		try:
 			form = { # own post request
 				'leak_addr' : hex(func_addr),
 				'func_name' : func_name,
+				'auth' : authkey
 			}
 			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
 			req = urllib2.Request(LIBC_REPO + 'get_libc_base_addr',urllib.urlencode(form),headers) # getting result
@@ -180,11 +199,16 @@ class Pwn():
 	def get_libc_offset(self,func2_addr,func2_name,func1_name='system'):
 		# get offset on own collection
 		offset = 0
+		authkey = load_auth_key()
+		if not authkey:
+			raise Exception('You must set your authkey in ~/.libc_collection_authkey to use this method')
+
 		try:
 			form = { # own post request
 				'func_addr' : hex(func2_addr),
 				'func_name' : func2_name,
-				'func2_name' : func1_name
+				'func2_name' : func1_name,
+				'auth' : authkey
 			}
 			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
 			req = urllib2.Request(LIBC_REPO + 'libc_find',urllib.urlencode(form),headers) # getting result
@@ -203,12 +227,17 @@ class Pwn():
 	# [261328, 262544, 261904, 263088]
 	def get_libc_offset_by(self,func_name,os_name,os_version,arch):
 		offset = None
+		authkey = load_auth_key()
+		if not authkey:
+			raise Exception('You must set your authkey in ~/.libc_collection_authkey to use this method')
+
 		try:
 			form = { # own post request
 				'func_name' : func_name,
 				'os_name' : os_name,
 				'os_version' : os_version,
-				'arch' : arch
+				'arch' : arch,
+				'auth' : authkey
 			}
 			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
 			# getting result
