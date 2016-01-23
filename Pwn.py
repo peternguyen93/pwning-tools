@@ -206,7 +206,7 @@ class Pwn():
 
 	# wrapper popular send/recive function
 	def read_until(self,value):
-		if self.con:
+		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.read_until(value)
 
@@ -220,22 +220,22 @@ class Pwn():
 		return rc 
 
 	def write(self,value):
-		if self.con:
+		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.write(value)
 
 	def send(self,value):
-		if self.con:
+		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.send(value)
 
 	def recv(self,size):
-		if self.con:
+		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.recv(size)
 
 	def close(self):
-		if self.con:
+		if not self.con:
 			raise Exception('You must connect() first')
 		self.con.close()
 
