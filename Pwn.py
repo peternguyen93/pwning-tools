@@ -329,7 +329,16 @@ class Pwn():
 	def unpack(self,value):
 		return self.up32(value) if self.mode == 0 else self.up64(value)
 
-	def pA(self,ropchain):
+	# >>> self.pA([1,2,3])
+	# '\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00'
+	# >>> self.pA(1,2,3)
+	# '\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00'
+	def pA(self,*args):
+		ropchain = []
+		if isinstance(args[0],list):
+			ropchain = args[0]
+		else:
+			ropchain = args
 		return ''.join([self.pack(rop) for rop in ropchain])
 
 	# building format string payload support 32 and 64 bit :)
