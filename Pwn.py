@@ -214,14 +214,14 @@ class Pwn():
 	# make easier when writing exploit code, read until stdin is available to send data.
 	# timeout default value is 0.1 sec
 	def readlines(self,timeout = 0.1):
-		s = p.con.get_socket()
+		s = self.con.get_socket()
 		s.setblocking(0)
 		recv_data = ''
 		while 1:
 			ready = select.select([s], [], [], timeout) # waiting reading list is available
 			if not ready[0]: # reach server input
 				break
-			recv_data += p.read_until('\n')
+			recv_data += self.read_until('\n')
 
 		return recv_data
 
