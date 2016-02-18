@@ -5,3 +5,5 @@ if [ ! -f "/usr/bin/socat" ]; then
 else
 	socat tcp-listen:8888,reuseaddr,fork exec:$1
 fi
+
+# gdb -p $(ps aux | grep $1 | head -n 3 | tail -n 1 | awk '{print $2}')
