@@ -32,6 +32,7 @@ import json
 import urllib2
 import urllib
 import string
+import select
 
 LIBC_REPO = 'http://libc.babyphd.net/' # own libc repo
 
@@ -141,9 +142,9 @@ class Pwn():
 					# is elf file exists
 					if not os.path.exists(path):
 						raise Exception('File %s not found' % path)	
-					self.__elfparsing(path)
+					self.elfparsing(path)
 
-	def __elfparsing(self,path):
+	def elfparsing(self,path):
 		# parsing elf file to dump got and plt table
 		with open(path,'r') as pfile:
 			elf = ELFFile(pfile)
@@ -209,6 +210,20 @@ class Pwn():
 		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.read_until(value)
+
+	# make easier when writing exploit code, read until stdin is available to send data.
+	# timeout default value is 0.1 sec
+	def readlines(self,timeout = 0.1):
+		s = p.con.get_socket()
+		s.setblocking(0)
+		recv_data = ''
+		while 1:
+			ready = select.select([s], [], [], timeout) # waiting reading list is available
+			if not ready[0]: # reach server input
+				break
+			recv_data += p.read_until('\n')
+
+		return recv_data
 
 	def read_all(self):
 		rc = self.con.recv(1024)
