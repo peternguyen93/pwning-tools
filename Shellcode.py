@@ -3,7 +3,9 @@ from __future__ import print_function
 from struct import *
 from ctypes import *
 from capstone import *
+from subprocess import *
 import os
+import platform
 # a collection of shellcode use regulary on exploit code.
 
 NOPs_X86 = '\x90'
@@ -110,6 +112,51 @@ def decrypt(cipher,key,step_funcs,mode = 0):
 
 	return msg
 
+# use to compile and extract your shellcode
+def asm(asm_code,arch='x86'):
+	sc = ''
+	nasm_path = ''
+	objcopy_path = ''
+	# getting config in Darwin system
+	if platform.system() == 'Darwin':
+		nasm_path = '/usr/local/bin/nasm'
+		objcopy_path = '/usr/local/bin/gobjcopy'
+	# getting config in Linux system
+	elif platform.system() == 'Linux':
+		nasm_path = '/usr/bin/nasm'
+		objcopy_path = '/usr/bin/objcopy'
+	else:
+		raise Exception('Unsupported operating system')
+
+	if not os.path.exists(nasm_path):
+		raise Exception('nasm is not installed')
+	if not os.path.exists(objcopy_path):
+		raise Exception('objcopy is not installed')
+
+	f = open('/tmp/shell.s','w')
+	f.write(asm_code)
+	f.close()
+
+	if arch == 'x86':
+		check_call([nasm_path, '-f','elf32','/tmp/shell.s','-o','/tmp/shell.o'])
+	elif arch == 'x86_64':
+		check_call([nasm_path, '-f','elf64','/tmp/shell.s','-o','/tmp/shell.o'])
+	else:
+		raise Exception('Unsupported architecture')
+
+	# compile success
+	if os.path.exists('/tmp/shell.o'):
+		# extract shellcode
+		check_call([objcopy_path,'-O','binary','--only-section=.text','/tmp/shell.o','/tmp/shell.bin'])
+
+	if not os.path.exists('/tmp/shell.bin'):
+		raise Exception('Some thing went wrong when extracted your shellcode')
+
+	f = open('/tmp/shell.bin','r')
+	sc = f.read()
+	f.close()
+	return Shellcode(sc,arch)
+
 class Shellcode(str):
 	mode = 0
 
@@ -117,6 +164,13 @@ class Shellcode(str):
 		obj = super(Shellcode,cls).__new__(cls,content)
 		if isinstance(mode,int):
 			obj.mode = mode
+		elif isinstance(mode,str):
+			if mode == 'x86':
+				obj.mode = 0
+			elif mode == 'x86_64':
+				obj.mode = 1
+			else:
+				raise Exception('Your mode is not support')
 		else:
 			raise Exception('Invalid Mode Setting')
 		return obj
