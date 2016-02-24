@@ -151,12 +151,15 @@ class Pwn():
 			if not elf:
 				raise Exception('File %s is not elf file' % path)
 
+			# get binary arch
+			self.arch = elf.get_machine_arch()
 			# get rellocation section 
-			arch = elf.get_machine_arch() # get arch
 			# auto set self.mode base on arch of elf binary
-			self.mode = 0 if arch == 'x86' else 1
+			self.mode = 0 if elf.elfclass == 32 else 1
 
 			plt_section = elf.get_section_by_name('.plt')
+			if not plt_section:
+				raise Exception('Binary doesn\'t have .plt section')
 			plt_address = plt_section.header['sh_addr'] # get plt base address
 			entry_align = plt_section.header['sh_addralign'] # plt entry size
 
@@ -167,11 +170,11 @@ class Pwn():
 				raise Exception('Can dump SymbolTableSection')
 
 			# get reallocation section to dump got table
-			reladyn_name = b'.rel.plt' if arch == 'x86' else b'.rela.plt'
+			reladyn_name = b'.rel.plt' if self.mode == 0 else b'.rela.plt'
 			reladyn = elf.get_section_by_name(reladyn_name)
 			# can dump ?
 			if not isinstance(reladyn, RelocationSection):
-				raise Exception('Can dump SymbolTableSection')
+				raise Exception('Can\'t dump RelocationSection')
 
 			# dumping got and plt table
 			for reloc in reladyn.iter_relocations():
@@ -221,7 +224,7 @@ class Pwn():
 			ready = select.select([s], [], [], timeout) # waiting reading list is available
 			if not ready[0]: # reach server input
 				break
-			recv_data += self.read_until('\n')
+			recv_data += self.recv(1024)
 
 		return recv_data
 
