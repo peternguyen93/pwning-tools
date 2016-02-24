@@ -66,9 +66,21 @@ class ELFTable(dict):
 	# >>> got['getc'] # will return '_IO_getc' value
 	# 6294752
 	def __getitem__(self,key):
+		res = {}
 		for _key in self.keys():
-			if key in _key:
-				return dict.__getitem__(self,_key)
+			if key in _key: # find item has there key look like my key
+				res[key] = dict.__getitem__(self,_key)
+		# one result
+		if len(res) == 1:
+			return res.values()[0]
+		# more than one result
+		else:
+			for _key in res:
+				if key == _key: # find item has there key is matched my key
+					return res[_key]
+			# raise exception when i couldn't find any matched key
+			raise Exception("There are many result has returned",res)
+
 		raise KeyError('%s is\'t found' % key)
 	
 	# istead using key lookup, user can lookup value as a function
@@ -217,6 +229,8 @@ class Pwn():
 	# make easier when writing exploit code, read until stdin is available to send data.
 	# timeout default value is 0.1 sec
 	def readlines(self,timeout = 0.1):
+		if not self.con:
+			raise Exception('You must connect() first')
 		s = self.con.get_socket()
 		s.setblocking(0)
 		recv_data = ''
