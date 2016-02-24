@@ -17,3 +17,6 @@ Added:
 - exec_enc_command shelllcode
 - cyclic : create cyclic string
 - support access plt and got table by p = Pwn(elf='bin')
+- run binary with socat using this:
+	+ sct -r /bin/sh (default port is 8888)
+	+ sct -d -r /bin/sh (auto detect binary architecture and then unbuffered stdin stdout and stderr)
