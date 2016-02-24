@@ -1,9 +1,43 @@
 #!/bin/bash
+# gdb -p $(ps aux | grep $1 | head -n 3 | tail -n 1 | awk '{print $2}')
 
 if [ ! -f "/usr/bin/socat" ]; then
-	sudo apt-get install socat
-else
-	socat tcp-listen:8888,reuseaddr,fork exec:$1
+	echo 'Install socat: sudo apt-get install socat'
+	exit 0
 fi
 
-# gdb -p $(ps aux | grep $1 | head -n 3 | tail -n 1 | awk '{print $2}')
+app_run=""
+is_dup=false
+
+while getopts "r:dh" opt; do
+	case $opt in
+		r|run)
+			app_run=$OPTARG
+			;;
+		d|dup)
+			is_dup=true
+			;;
+		*)
+			;;
+	esac
+done
+
+if [ -n "$app_run" ]; then
+	if $is_dup; then
+		elf_class=`readelf -h $app_run | grep -Po "(ELF[[:digit:]]*)"`
+		IFS=$'\n' read -rd '' -a arr <<<"$elf_class"
+		prefix=""
+		if [ "${arr[1]}" == "ELF64" ]; then
+			prefix="stdbuf -i0 -o0 -e0"
+		elif [ "${arr[1]}" == "ELF32" ]; then
+			prefix="/usr/local/bin/stdbuf32"
+		else
+			echo 'Unsupported Architecture'
+			exit 1
+		fi
+		socat tcp-listen:8888,reuseaddr,fork exec:"$prefix $app_run"
+	else
+		socat tcp-listen:8888,reuseaddr,fork exec:$app_run
+	fi
+fi
+
