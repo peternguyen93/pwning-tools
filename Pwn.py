@@ -116,6 +116,7 @@ class Pwn():
 		self.sock_file = None
 		self.got = ELFTable({})
 		self.plt = ELFTable({})
+		self.debug = False
 
 		# load authkey
 		self.authkey = load_auth_key()
@@ -155,6 +156,10 @@ class Pwn():
 					if not os.path.exists(path):
 						raise Exception('File %s not found' % path)	
 					self.elfparsing(path)
+			elif key.lower() == 'debug':
+				if type(value) is not bool:
+					raise Exception('debug variable only accept bool type')
+				self.debug = value
 
 	def elfparsing(self,path):
 		# parsing elf file to dump got and plt table
@@ -240,6 +245,9 @@ class Pwn():
 				break
 			recv_data += self.recv(1024)
 
+		if debug:
+			print('[DEBUG] ' + repr(recv_data))
+
 		return recv_data
 
 	def send(self,value):
@@ -264,7 +272,10 @@ class Pwn():
 	def recv(self,size):
 		if not self.con:
 			raise Exception('You must connect() first')
-		return self.con.recv(size)
+		recv_data = self.con.recv(size)
+		if debug:
+			print('[DEBUG] ' + repr(recv_data))
+		return recv_data
 
 	def write(self,value):
 		if not self.con:
