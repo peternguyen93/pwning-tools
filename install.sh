@@ -16,7 +16,7 @@ if [ "Linux" = "$os_name" ]; then
 	fi
 
 	sudo cp Shellcode.py Pwn.py $PYTHON
-	sudo cp gdb_attach /usr/bin/
+	sudo cp prgrep /usr/bin/
 	sudo cp sct /usr/bin/
 	sudo mkdir -p /usr/local/lib/libstdlib32/
 	sudo cp stdbuf32/libstdbuf.so /usr/local/lib/libstdlib32/
