@@ -245,7 +245,7 @@ class Pwn():
 				break
 			recv_data += self.recv(1024)
 
-		if debug:
+		if self.debug:
 			print('[DEBUG] readlines() : ' + repr(recv_data))
 
 		return recv_data
@@ -273,7 +273,7 @@ class Pwn():
 		if not self.con:
 			raise Exception('You must connect() first')
 		recv_data = self.con.recv(size)
-		if debug:
+		if self.debug:
 			print('[DEBUG] recv(%d) : %s' % (size,repr(recv_data)))
 		return recv_data
 
