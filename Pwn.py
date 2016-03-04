@@ -242,29 +242,34 @@ class Pwn():
 
 		return recv_data
 
-	def read_all(self):
-		rc = self.con.recv(1024)
-		while 1:
-			t = self.con.recv(1024)
-			if t == '':
-				break
-			rc += t
-		return rc 
-
-	def write(self,value):
-		if not self.con:
-			raise Exception('You must connect() first')
-		return self.con.write(value)
-
 	def send(self,value):
 		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.send(value)
 
+	# send string with new line
+	def sendline(self,value):
+		if not self.con:
+			raise Exception('You must connect() first')
+		return self.send(value + '\n')
+
+	# send number p.sendum(1)
+	def sendnum(self,value):
+		if not self.con:
+			raise Exception('You must connect() first')
+		if type(value) not is int and type(value) not is float:
+			raise Exception('1st argument must be integer or float')
+		return self.sendline(str(value))
+
 	def recv(self,size):
 		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.recv(size)
+
+	def write(self,value):
+		if not self.con:
+			raise Exception('You must connect() first')
+		return self.con.write(value)
 
 	def close(self):
 		if not self.con:
