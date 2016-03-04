@@ -257,7 +257,7 @@ class Pwn():
 	def sendnum(self,value):
 		if not self.con:
 			raise Exception('You must connect() first')
-		if type(value) not is int and type(value) not is float:
+		if type(value) is not int and type(value) is not float:
 			raise Exception('1st argument must be integer or float')
 		return self.sendline(str(value))
 
