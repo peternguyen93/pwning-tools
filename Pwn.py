@@ -294,14 +294,26 @@ class Pwn():
 	# get offset between to function if you can leak one of them
 	# >>> from Pwn import *
 	# >>> p = Pwn()
-	# >>> offset,base_address = p.get_libc_offset(0x7ffff7a84e30,'puts')
+	# >>> offset,offset2 = p.get_libc_offset(0x7ffff7a84e30,'puts',is_get_base=True)
 	# >>> print hex(offset)
 	# 0x297f0
+	# >>> base_address = 0x7ffff7a84e30 - offset2
 	# >>> print hex(base_address)
 	# 0x7ffff7a15000
-	def get_libc_offset(self,func2_addr,func2_name,func1_name='system'):
+	# >>> offset = p.get_libc_offset(0x7ffff7a84e30,'puts')
+	# >>> print hex(offset)
+	# 0x297f0
+	def get_libc_offset(self,func2_addr,func2_name,func1_name='system',**kargs):
+		
+		if kargs.has_key('is_get_base'): # if flag is_get_base is setted
+			is_get_base = kargs['is_get_base']
+			if type(is_get_base) != bool:
+				raise Exception('is_get_base argument must be bool type')
+		else: # if is_get_base is not set
+			is_get_base = False 
+
 		# get offset on own collection
-		offset = base_addr = 0
+		offset = offset2 = 0
 		if not self.authkey:
 			raise Exception('You must set your authkey in ~/.libc_collection_authkey to use this method')
 
@@ -319,11 +331,15 @@ class Pwn():
 			res.close()
 
 			offset = result['offset']
-			base_addr = result['base_addr']
+			offset2 = result['offset2'] # store offset between your func1_name and libc_base_address
 		except: # handle every exception
 			pass
-		# return both offset between 2 function and base address of libc
-		return offset,base_addr
+
+		if is_get_base: # if user want to calc libc base address
+			# return both offset between 2 function and base address of libc
+			return offset,offset2
+		else: # otherwise return offset between func1 and func2
+			return offset
 
 	# this method helps you calc local libc.so offset
 	# >>> offset = p.calc_libc_offset('/lib/x86_64-linux-gnu/libc.so.6','puts')
