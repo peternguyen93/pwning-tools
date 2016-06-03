@@ -262,7 +262,11 @@ class Pwn():
 		return self.send(value + '\n')
 
 	# send number p.sendum(1)
-	def sendnum(self,value):
+	def sendnum(self,value): # this version that help old exploit code can run.
+		return self.sendint(value)
+
+	# rename sendnum to sendint
+	def sendint(self,value):
 		if not self.con:
 			raise Exception('You must connect() first')
 		if type(value) is not int and type(value) is not float:
@@ -374,14 +378,17 @@ class Pwn():
 		return offset
 
 	# utilities method that support you make your payload easier
+	# c_uint32,c_uint64 that heap p32/p64 can pack in signed integer
+	# for example:
+	# p.pack(-1) # will return "\xff\xff\xff\xff"
 	def p32(self,value):
-		return pack('<I',value)
+		return pack('<I',c_uint32(value).value)
 
 	def up32(self,value):
 		return unpack('<I',value)[0]
 
 	def p64(self,value):
-		return pack('<Q',value)
+		return pack('<Q',c_uint64(value).value)
 
 	def up64(self,value):
 		return unpack('<Q',value)[0]
