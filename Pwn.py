@@ -99,7 +99,9 @@ class ELFTable(dict):
 class Telnet(telnetlib.Telnet):
 	def __init__(self,host,port):
 		telnetlib.Telnet.__init__(self,host,port)
+
 	# make easier when you want to send raw data to server
+
 	def send(self,data):
 		return self.get_socket().send(data)
 
@@ -207,16 +209,18 @@ class Pwn():
 			raise Exception('You had connected.')
 		self.con = Telnet(self.host,self.port)
 
-	# make socket as file, use with libncurse in service
-	def makefile(self,mode,bufsize=0): # default bufsize = 0 unbuffered
+	def makefile(self,mode,bufsize=0):
+		# make socket as file, use with libncurse in service
+		# default bufsize = 0 unbuffered
+
 		if not self.con:
 			raise Exception('You must connect() first')
 		s = self.con.get_socket()
 		self.sock_file = s.makefile(mode,bufsize)
 		return self.sock_file
 
-	# some function work with sock_file
 	def read_file_until(self,end):
+		# some function work with sock_file
 		buf = ''
 		if not self.sock_file:
 			raise Exception('You must makefile() first')
@@ -225,15 +229,15 @@ class Pwn():
 			buf += self.sock_file.read(1)
 		return buf
 
-	# wrapper popular send/recive function
 	def read_until(self,value):
+		# wrapper popular send/recive function
 		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.read_until(value)
 
-	# make easier when writing exploit code, read until stdin is available to send data.
-	# timeout default value is 0.1 sec
 	def readlines(self,timeout = 0.1):
+		# make easier when writing exploit code, read until stdin is available to send data.
+		# timeout default value is 0.1 sec
 		if not self.con:
 			raise Exception('You must connect() first')
 		s = self.con.get_socket()
@@ -255,18 +259,18 @@ class Pwn():
 			raise Exception('You must connect() first')
 		return self.con.send(value)
 
-	# send string with new line
 	def sendline(self,value):
+		# send string with new line
 		if not self.con:
 			raise Exception('You must connect() first')
 		return self.send(value + '\n')
 
-	# send number p.sendum(1)
 	def sendnum(self,value): # this version that help old exploit code can run.
+		# send number p.sendum(1)
 		return self.sendint(value)
 
-	# rename sendnum to sendint
 	def sendint(self,value):
+		# rename sendnum to sendint
 		if not self.con:
 			raise Exception('You must connect() first')
 		if type(value) is not int and type(value) is not float:
@@ -295,19 +299,19 @@ class Pwn():
 		print('[+] Pwned Shell.')
 		self.con.interact()
 
-	# get offset between to function if you can leak one of them
-	# >>> from Pwn import *
-	# >>> p = Pwn()
-	# >>> offset,offset2 = p.get_libc_offset(0x7ffff7a84e30,'puts',is_get_base=True)
-	# >>> print hex(offset)
-	# 0x297f0
-	# >>> base_address = 0x7ffff7a84e30 - offset2
-	# >>> print hex(base_address)
-	# 0x7ffff7a15000
-	# >>> offset = p.get_libc_offset(0x7ffff7a84e30,'puts')
-	# >>> print hex(offset)
-	# 0x297f0
 	def get_libc_offset(self,func2_addr,func2_name,func1_name='system',**kargs):
+		# get offset between to function if you can leak one of them
+		# >>> from Pwn import *
+		# >>> p = Pwn()
+		# >>> offset,offset2 = p.get_libc_offset(0x7ffff7a84e30,'puts',is_get_base=True)
+		# >>> print hex(offset)
+		# 0x297f0
+		# >>> base_address = 0x7ffff7a84e30 - offset2
+		# >>> print hex(base_address)
+		# 0x7ffff7a15000
+		# >>> offset = p.get_libc_offset(0x7ffff7a84e30,'puts')
+		# >>> print hex(offset)
+		# 0x297f0
 		
 		if kargs.has_key('is_get_base'): # if flag is_get_base is setted
 			is_get_base = kargs['is_get_base']
@@ -345,11 +349,11 @@ class Pwn():
 		else: # otherwise return offset between func1 and func2
 			return offset
 
-	# this method helps you calc local libc.so offset
-	# >>> offset = p.calc_libc_offset('/lib/x86_64-linux-gnu/libc.so.6','puts')
-	# >>> print hex(offset)
-	# 0x297f0
 	def calc_libc_offset(self,libc_path,func2,func1='system'):
+		# this method helps you calc local libc.so offset
+		# >>> offset = p.calc_libc_offset('/lib/x86_64-linux-gnu/libc.so.6','puts')
+		# >>> print hex(offset)
+		# 0x297f0
 		offset = 0
 		if os.path.exists(libc_path):
 			with open(libc_path,'r') as pfile:
@@ -380,7 +384,8 @@ class Pwn():
 	# utilities method that support you make your payload easier
 	# c_uint32,c_uint64 that heap p32/p64 can pack in signed integer
 	# for example:
-	# p.pack(-1) # will return "\xff\xff\xff\xff"
+	#  - p.pack(-1) # will return "\xff\xff\xff\xff"
+
 	def p32(self,value):
 		return pack('<I',c_uint32(value).value)
 
@@ -394,17 +399,19 @@ class Pwn():
 		return unpack('<Q',value)[0]
 
 	# using pack,unpack simplier by defining mode value
+
 	def pack(self,value):
 		return self.p32(value) if self.mode == 0 else self.p64(value)
 
 	def unpack(self,value):
 		return self.up32(value) if self.mode == 0 else self.up64(value)
 
-	# >>> self.pA([1,2,3])
-	# '\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00'
-	# >>> self.pA(1,2,3)
-	# '\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00'
 	def pA(self,*args):
+		# >>> self.pA([1,2,3])
+		# '\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00'
+		# >>> self.pA(1,2,3)
+		# '\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00'
+
 		ropchain = []
 		if isinstance(args[0],list):
 			ropchain = args[0]
@@ -412,9 +419,10 @@ class Pwn():
 			ropchain = args
 		return ''.join([self.pack(rop) for rop in ropchain])
 
-	# building format string payload support 32 and 64 bit :)
-	# you can ovewrite this method and make it better
 	def build32FormatStringBug(self,address,write_address,offset,pad = ''):
+		# building format string payload support 32 and 64 bit :)
+		# you can ovewrite this method and make it better
+
 		fmt = pad
 		for i in xrange(4):
 			fmt += pack('<I',address + i)
@@ -434,8 +442,10 @@ class Pwn():
 		
 		return fmt
 
-	# this method require you must find a stable format string and offset that make stack offset doesn't change.
 	def build64FormatStringBug(self,address,write_address,offset,pad = ''):
+		# this method require you must find a stable format string and offset
+		# that make stack offset doesn't change.
+
 		fmt = ''
 		next = 0
 		last = len(fmt) # length pad
@@ -452,15 +462,15 @@ class Pwn():
 
 		return fmt
 
-	# dynamic buildFormatStringBug
 	def genFormatString(self,address,write_address,offset,pad = ''):
+		# dynamic buildFormatStringBug
 		if self.mode: # for 64 bits mode
 			return self.build64FormatStringBug(address,write_address,offset,pad)
 		else: # for 32 bits mode
 			return self.build32FormatStringBug(address,write_address,offset,pad)
 
-	# randomize my buffer :v
 	def rand_buf(self,size,except_bytes=['\x00','\x0a','\x0b','\x0c']):
+		# randomize my buffer :v
 		buf = ''
 		for i in xrange(size):
 			b = os.urandom(1)
@@ -469,10 +479,10 @@ class Pwn():
 			buf += b
 		return buf
 
-	# string cyclic function
-	# this code base on https://github.com/Gallopsled/pwntools/blob/master/pwnlib/util/cyclic.py
-	# Taken from https://en.wikipedia.org/wiki/De_Bruijn_sequence but changed to a generator
 	def de_bruijn(self, alphabet = string.ascii_lowercase, n = 4):
+		# string cyclic function
+		# this code base on https://github.com/Gallopsled/pwntools/blob/master/pwnlib/util/cyclic.py
+		# Taken from https://en.wikipedia.org/wiki/De_Bruijn_sequence but changed to a generator
 		"""de_bruijn(alphabet = string.ascii_lowercase, n = 4) -> generator
 
 		Generator for a sequence of unique substrings of length `n`. This is implemented using a
@@ -519,9 +529,9 @@ class Pwn():
 		else:
 			return out
 
-	# finding subseq in generator then return pos of this subseq
-	# if it doens't find then return -1
 	def cyclic_find(self, subseq, length = 0x10000):
+		# finding subseq in generator then return pos of this subseq
+		# if it doens't find then return -1
 		generator = self.cyclic(length)
 
 		if isinstance(subseq, (int, long)): # subseq might be a number or hex value
