@@ -12,10 +12,10 @@
 # method that help calc offset between 2 libc function (system and other func)
 # method that help automatic find got address and write value to it
 
-# Requires: pyelftools
+# Requires: pyelftools,capstone,keystone
 
 # Author : Peternguyen
-# Version : 0.5
+# Version : 1.0
 
 # /bin/sh -c "echo shell >&4; sh <&4 >&4"
 
@@ -209,6 +209,15 @@ class Pwn():
 			raise Exception('You had connected.')
 		self.con = Telnet(self.host,self.port)
 
+	def clone(self):
+		# only clone connection not hole setting of Pwn object
+		new_p = Pwn() # create new Pwn Object
+		# copy mode,host,port from old to new
+		new_p.mode = self.mode
+		new_p.host = self.host
+		new_p.port = self.port
+		return new_p
+
 	def makefile(self,mode,bufsize=0):
 		# make socket as file, use with libncurse in service
 		# default bufsize = 0 unbuffered
@@ -234,6 +243,20 @@ class Pwn():
 		if not self.con:
 			raise Exception('You must connect() first')
 		return self.con.read_until(value)
+
+	def read_untils(self,*args):
+		# read_untils many sign of text
+		# read_untils('AAAAAA','BBBBBB'), if in buffer recv has
+		# text 'AAAAAA' or 'BBBBBB' it will stop recv byte from server
+		recv = ''
+		is_found = False
+		while not is_found:
+			recv += self.recv(1)
+			for arg in args:
+				if arg in recv:
+					is_found = True
+					break
+		return recv
 
 	def readlines(self,timeout = 0.1):
 		# make easier when writing exploit code, read until stdin is available to send data.
@@ -333,7 +356,8 @@ class Pwn():
 				'auth' : self.authkey
 			}
 			headers = {'User-Agent':'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'}
-			req = urllib2.Request(LIBC_REPO + 'libc_find',urllib.urlencode(form),headers) # getting result
+			# getting result
+			req = urllib2.Request(LIBC_REPO + 'libc_find',urllib.urlencode(form),headers)
 			res = urllib2.urlopen(req)
 			result = json.loads(res.read())
 			res.close()
@@ -390,13 +414,31 @@ class Pwn():
 		return pack('<I',c_uint32(value).value)
 
 	def up32(self,value):
+		if len(value) < 4:
+			value = value.ljust(4,'\x00')
 		return unpack('<I',value)[0]
 
 	def p64(self,value):
 		return pack('<Q',c_uint64(value).value)
 
 	def up64(self,value):
+		if len(value) < 8:
+			value = value.ljust(8,'\x00')
 		return unpack('<Q',value)[0]
+
+	def p16(self,value):
+		return pack('<H',c_uint16(value).value)
+
+	def up16(self,value):
+		if len(value) < 2:
+			value = value.ljust(2,'\x00')
+		return unpack('<H',value)
+
+	def p8(self,value):
+		return pack('<B',value)
+
+	def up8(self,value):
+		return unpack('<B',value)
 
 	# using pack,unpack simplier by defining mode value
 
