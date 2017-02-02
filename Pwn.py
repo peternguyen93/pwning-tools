@@ -15,7 +15,7 @@
 # Requires: pyelftools,capstone,keystone
 
 # Author : Peternguyen
-# Version : 1.0
+# Version : 1.1
 
 # /bin/sh -c "echo shell >&4; sh <&4 >&4"
 
@@ -460,6 +460,39 @@ class Pwn():
 		else:
 			ropchain = args
 		return ''.join([self.pack(rop) for rop in ropchain])
+
+	# ror,rol operator
+	def _rol(self,val,r_bits,max_bits):
+		# @max_bits present max size of integer
+		# for example int32 -> max_bits = 32 bits
+		# @var is number you want to ror/rol
+		# @r_bits is number of bit you want to ror/rol 
+		res = (val << r_bits%max_bits) & (2**max_bits-1) | \
+			((val & (2**max_bits-1)) >> (max_bits-(r_bits%max_bits)))
+		return res
+
+	def _ror(self,val,r_bits,max_bits):
+		res = ((val & (2**max_bits-1)) >> r_bits%max_bits) | \
+			(val << (max_bits-(r_bits%max_bits)) & (2**max_bits-1))
+		return res
+
+	def rol32(self,val,r_bits):
+		return self._rol(val,r_bits,32)
+
+	def ror32(self,val,r_bits):
+		return self._ror(val,r_bits,32)
+
+	def rol64(self,val,r_bits):
+		return self._rol(val,r_bits,64)
+
+	def ror64(self,val,r_bits):
+		return self._ror(val,r_bits,64)
+
+	def rol(self,val,r_bits):
+		return self.rol32(val,r_bits) if self.mode == 0 else self.rol64(va,r_bits)
+
+	def ror(self,val,r_bits):
+		return self.ror32(val,r_bits) if self.mode == 0 else self.ror64(va,r_bits)
 
 	def build32FormatStringBug(self,address,write_address,offset,pad = ''):
 		# building format string payload support 32 and 64 bit :)
