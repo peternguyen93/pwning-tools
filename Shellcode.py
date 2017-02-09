@@ -51,6 +51,11 @@ def asm(asm_code,arch):
 		return ''
 	else:
 		return Shellcode(sc,arch)
+# wrapper asm function
+def asm_x86(asm_code):
+	return asm(asm_code,'x86')
+def asm_x86_64(asm_code):
+	return asm(asm_code,'x86_64')
 
 class Shellcode(str):
 	def __new__(cls,content,arch = 'x86'): # default architecture
@@ -64,7 +69,7 @@ class Shellcode(str):
 		return obj
 
 	# support disassembly feature
-	def disas(self):
+	def pdisas(self):
 		md = None
 		if self.arch == 'x86_64':
 			md = Cs(CS_ARCH_X86, CS_MODE_64)
@@ -82,6 +87,30 @@ class Shellcode(str):
 		else:
 			for (address, size, mnemonic, op_str) in md.disasm_lite(str.__str__(self), 0x1000):	
 				print("0x%x:\t%s\t%s" % (address, mnemonic, op_str))
+
+	# disas to asm string
+	def disas(self):
+		md = None
+		if self.arch == 'x86_64':
+			md = Cs(CS_ARCH_X86, CS_MODE_64)
+		elif self.arch == 'x86':
+			md = Cs(CS_ARCH_X86, CS_MODE_32)
+		elif self.arch == 'arm_thumb':
+			md = Cs(CS_ARCH_ARM, CS_MODE_THUMB)
+		elif self.arch == 'arm_32':
+			md = Cs(CS_ARCH_ARM, CS_MODE_ARM)
+		elif self.arch == 'arm_64':
+			md = Cs(CS_ARCH_ARM64, CS_MODE_ARM)
+
+		if not md:
+			raise Exception('Unsupported Arch')
+		else:
+			out = ''
+			for (address, size, mnemonic, op_str) in md.disasm_lite(str.__str__(self), 0x1000):
+				asm_str = '%s %s;' % (mnemonic, op_str)
+				out += asm_str
+			out = out[:-1]
+			return out
 
 	# concentraction two Shellcode
 	def __add__(self,obj):
