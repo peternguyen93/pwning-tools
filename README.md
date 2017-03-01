@@ -1,8 +1,13 @@
 # *pwning-tools*
 ## Author : _peternguyen_
 ## Version : _2.0 beta_
+## Requirements:
+- capstone
+- keystone
+- pyelftools
+## Installation:
+- > $./install.sh
 ## Description :
-
 - *pwning-tools* is a minimal library including many feature that help CTFer create a simple, fast exploit payload in CTF competition.
 - *pwning-tools* support parsing elf file to extract some usefull information such as : GOT, PLT and other symbol by passing elf file into elf argument:
 ```python >>> from Pwn import *
@@ -16,7 +21,7 @@
 >>> p = Pwn(elf='./silver_bullet',lazy='target 4444') # for socket
 >>> p = PwnProc(elf='./silver_bullet') # for interact with process
 ```
-- *pwning-tools* provide some method that help pwner easier to find libc symbol when they have leak address
+- *pwning-tools* provides some method that help pwner easier to find libc symbol when they have leak address
 ```python
 >>> from Pwn import *
 >>> p = Pwn()
@@ -30,9 +35,10 @@
 >>> print hex(offset)
 0x297f0
 ```
-- *pwning-tools* provide a method in PwnProc that help pwner can convert script running with pwning-tools in to standalone script can run separate in target server.
+- *pwning-tools* provides a method in PwnProc that help pwner can convert script running with pwning-tools in to standalone script can run separate in target server.
 ```python
 >>> p = PwnProc(elf='./hunting')
 >>> # some pwn code
 >>> p.export('./standalone_hunting.py')
 ```
+- *pwning-tool* provides *Shellcode* that have some default shellcode for pwning also support some function that help pwner can quickly write shellcode in python script.
