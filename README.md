@@ -1,22 +1,38 @@
-Pwn tools
-- Allow you write ctf exploit easier
-- Provide some shellcode
-- Current version : 0.5
-- gdb_attach : help you debug socat child process in gdb, copy to /usr/bin
-- libc_collection.json : is my libc offset collection copy it into your home folder (cp pwn.json ~/.libc_collection.json)
-- libc_collection.py is a script that extracts libc symbol, that help get_libc_offset method work smoothly.
+# *pwning-tools*
+## Author : _peternguyen_
+## Version : _2.0 beta_
+## Description :
 
-Requires:
-- pyelftools (pip install pyelftools)
-
-Added:
-- Sublime text snippet : 
-  + copy pwnlib_snippets.sublime-snippet Sublime\ Text\ 2/Packages/User/
-  + create new file py and type pwn + <tab> :)
-- read_flag_enc shellcode
-- exec_enc_command shelllcode
-- cyclic : create cyclic string
-- support access plt and got table by p = Pwn(elf='bin')
-- run binary with socat using this:
-	+ sct -r /bin/sh (default port is 8888)
-	+ sct -d -r /bin/sh (auto detect binary architecture and then unbuffered stdin stdout and stderr)
+- *pwning-tools* is a minimal library including many feature that help CTFer create a simple, fast exploit payload in CTF competition.
+- *pwning-tools* support parsing elf file to extract some usefull information such as : GOT, PLT and other symbol by passing elf file into elf argument:
+```python >>> from Pwn import *
+>>> p = Pwn(elf='./silver_bullet')
+>>> p.elf.got
+{'usleep': 134524888, 'strncat': 134524924, 'stdin': 134524960, '__gmon_start__': 134524896, 'puts': 134524892, 'stdout': 134524964, 'read': 134524880, 'memset': 134524916, 'atoi': 134524920, 'exit': 134524900, 'printf': 134524884, '__libc_start_main': 134524908, 'strlen': 134524904, 'setvbuf': 134524912}
+```
+- *pwning-tools* support interact with network socket and process (only work in Linux):
+```python
+>>> from Pwn import *
+>>> p = Pwn(elf='./silver_bullet',lazy='target 4444') # for socket
+>>> p = PwnProc(elf='./silver_bullet') # for interact with process
+```
+- *pwning-tools* provide some method that help pwner easier to find libc symbol when they have leak address
+```python
+>>> from Pwn import *
+>>> p = Pwn()
+>>> offset,offset2 = p.get_libc_offset(0x7ffff7a84e30,'puts',is_get_base=True)
+>>> print hex(offset)
+0x297f0
+>>> base_address = 0x7ffff7a84e30 - offset2
+>>> print hex(base_address)
+0x7ffff7a15000
+>>> offset = p.get_libc_offset(0x7ffff7a84e30,'puts')
+>>> print hex(offset)
+0x297f0
+```
+- *pwning-tools* provide a method in PwnProc that help pwner can convert script running with pwning-tools in to standalone script can run separate in target server.
+```python
+>>> p = PwnProc(elf='./hunting')
+>>> # some pwn code
+>>> p.export('./standalone_hunting.py')
+```
