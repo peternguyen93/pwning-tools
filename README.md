@@ -10,7 +10,8 @@
 ## Description :
 - *pwning-tools* is a minimal library including many feature that help CTFer create a simple, fast exploit payload in CTF competition.
 - *pwning-tools* support parsing elf file to extract some usefull information such as : GOT, PLT and other symbol by passing elf file into elf argument:
-```python >>> from Pwn import *
+```python
+>>> from Pwn import *
 >>> p = Pwn(elf='./silver_bullet')
 >>> p.elf.got
 {'usleep': 134524888, 'strncat': 134524924, 'stdin': 134524960, '__gmon_start__': 134524896, 'puts': 134524892, 'stdout': 134524964, 'read': 134524880, 'memset': 134524916, 'atoi': 134524920, 'exit': 134524900, 'printf': 134524884, '__libc_start_main': 134524908, 'strlen': 134524904, 'setvbuf': 134524912}
