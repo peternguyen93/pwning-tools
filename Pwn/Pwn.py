@@ -183,6 +183,7 @@ class ELF(object):
 			reladyn = elf.get_section_by_name(reladyn_name)
 			# can dump ?
 			if not isinstance(reladyn, RelocationSection):
+				print('[!] RERLO : enable')
 				reladyn_name = b'.rel.dyn' if self.mode == 0 else b'.rela.dyn'
 				# getting info again
 				reladyn = elf.get_section_by_name(reladyn_name)
@@ -201,6 +202,7 @@ class ELF(object):
 				arch = 'x86_64' if elf_arch == 'x64' else elf_arch
 				# when PIE is enable
 				if self.__is_pie(elf):
+					print('[!] PIE : enable')
 					# save current offset of elf file
 					old_file_offset = pfile.tell()
 					# see to .plt.got offset
@@ -227,6 +229,7 @@ class ELF(object):
 						plt_address += entry_align
 				# when PIE is disable
 				else:
+					print('[!] PIE : disable')
 					# save current offset of elf file
 					old_file_offset = pfile.tell()
 					# see to .plt.got offset
@@ -251,6 +254,7 @@ class ELF(object):
 				# restore old offset
 				pfile.seek(old_file_offset,0)			
 			else:
+				print('[!] RERLO : disable')
 				# dumping got and plt table
 				# for RELRO FULL is disable
 				for reloc in reladyn.iter_relocations():
@@ -315,6 +319,12 @@ class Pwn(object):
 					self.elf_path = value
 					self.elf = ELF(value)
 					self.mode = self.elf.mode
+				else:
+					raise Exception('`elf` only accept string object')
+			elif key.lower() == 'proc':
+				if not os.path.exists(value):
+					raise Exception('"%s" is not exists' % value)
+				self.elf_path = value
 			elif key.lower() == 'sock':
 				# overwrite self-connection with other connection
 				if value.__class__.__name__ == '_socketobject':
