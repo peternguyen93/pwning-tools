@@ -58,17 +58,18 @@ def load_auth_key():
 class ELFTable(dict):
 	def __init__(self,*arg,**kw):
 		super(ELFTable, self).__init__(*arg, **kw)
-	# override this method to perform new search method act like this example:
-	# >>> got = ELFTable({
-	# ...             '__gmon_start__': 6294744,
-	# ...             '_IO_getc': 6294752,
-	# ...             'puts': 6294704,
-	# ...             '__printf_chk': 6294760,
-	# ...             'memset': 6294728
-	# ... })
-	# >>> got['getc'] # will return '_IO_getc' value
-	# 6294752
+
 	def __getitem__(self,key):
+		# override this method to perform new search method act like this example:
+		# >>> got = ELFTable({
+		# ...             '__gmon_start__': 6294744,
+		# ...             '_IO_getc': 6294752,
+		# ...             'puts': 6294704,
+		# ...             '__printf_chk': 6294760,
+		# ...             'memset': 6294728
+		# ... })
+		# >>> got['getc'] # will return '_IO_getc' value
+		# 6294752
 		res = {}
 		for _key in self.keys():
 			if key in _key: # find item has there key look like my key
@@ -86,16 +87,16 @@ class ELFTable(dict):
 
 		raise KeyError('%s is\'t found' % key)
 	
-	# istead using key lookup, user can lookup value as a function
-	# >>> got = ELFTable({
-	# ...             '__gmon_start__': 6294744,
-	# ...             '_IO_getc': 6294752,
-	# ...             'puts': 6294704,
-	# ...             '__printf_chk': 6294760,
-	# ...             'memset': 6294728
-	# ... })
-	# >>> got('getc') # will return '_IO_getc' value
 	def __call__(self,arg):
+		# istead using key lookup, user can lookup value as a function
+		# >>> got = ELFTable({
+		# ...             '__gmon_start__': 6294744,
+		# ...             '_IO_getc': 6294752,
+		# ...             'puts': 6294704,
+		# ...             '__printf_chk': 6294760,
+		# ...             'memset': 6294728
+		# ... })
+		# >>> got('getc') # will return '_IO_getc' value
 		return self.__getitem__(arg)
 
 class ELF(object):
