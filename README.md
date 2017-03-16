@@ -1,5 +1,6 @@
 # *pwning-tools*
 ## Author : _peternguyen_
+## License : [here](LICENSE)
 ## Version : _2.0 beta_
 ## Requirements:
 - capstone
