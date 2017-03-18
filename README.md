@@ -44,3 +44,18 @@
 >>> p.export('./standalone_hunting.py')
 ```
 - *pwning-tool* provides *Shellcode* that have some default shellcode for pwning also support some function that help pwner can quickly write shellcode in python script.
+---
+*pwning-tools* also support you quickly write shellcode base on keystone-engine.
+```python
+from Pwn import *
+asm('''
+	push 0x1
+	pop eax
+	int 0x80
+''','x86') # for quickly use only for intel x86, x86_64
+asm_x86('''
+	push 0x1
+	pop eax
+	int 0x80
+''')
+```
