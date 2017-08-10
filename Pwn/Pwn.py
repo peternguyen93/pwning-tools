@@ -617,7 +617,7 @@ class Pwn(object):
 	def ror(self,val,r_bits):
 		return self.ror32(val,r_bits) if self.mode == 0 else self.ror64(va,r_bits)
 
-	def build32FormatStringBug(self,address,write_address,offset,pad = ''):
+	def build32FormatStringBug(self,address,write_value,offset,pad = ''):
 		# building format string payload support 32 and 64 bit :)
 		# you can ovewrite this method and make it better
 
@@ -627,12 +627,12 @@ class Pwn(object):
 
 		length_pad = len(fmt)
 		start = 0
-		if c_byte(write_address & 0xff).value < length_pad:
+		if c_byte(write_value & 0xff).value < length_pad:
 			start += 0x100
 
 		# generate write string
 		for i in xrange(0,4):
-			byte = (write_address >> (8*i)) & 0xff
+			byte = (write_value >> (8*i)) & 0xff
 			byte += start
 			fmt += '%{0}x'.format((byte - length_pad)) + '%{0}$n'.format(offset + i)
 			length_pad = byte
@@ -640,7 +640,7 @@ class Pwn(object):
 		
 		return fmt
 
-	def build64FormatStringBug(self,address,write_address,offset,pad = ''):
+	def build64FormatStringBug(self,address,write_value,offset,pad = ''):
 		# this method require you must find a stable format string and offset
 		# that make stack offset doesn't change.
 
@@ -648,7 +648,7 @@ class Pwn(object):
 		next = 0
 		last = len(fmt) # length pad
 		for i in xrange(8):
-			byte = (write_address >> (8*i)) & 0xff
+			byte = (write_value >> (8*i)) & 0xff
 			byte += next
 			fmt+= '%{0}x%{1}$n'.format(byte - last,offset + i)
 			last = byte
@@ -660,12 +660,12 @@ class Pwn(object):
 
 		return fmt
 
-	def genFormatString(self,address,write_address,offset,pad = ''):
+	def genFormatString(self,address,write_value,offset,pad = ''):
 		# dynamic buildFormatStringBug
 		if self.mode: # for 64 bits mode
-			return self.build64FormatStringBug(address,write_address,offset,pad)
+			return self.build64FormatStringBug(address,write_value,offset,pad)
 		else: # for 32 bits mode
-			return self.build32FormatStringBug(address,write_address,offset,pad)
+			return self.build32FormatStringBug(address,write_value,offset,pad)
 
 	def rand_buf(self,size,except_bytes=['\x00','\x0a','\x0b','\x0c']):
 		# randomize my buffer :v
@@ -677,55 +677,62 @@ class Pwn(object):
 			buf += b
 		return buf
 
-	def de_bruijn(self, alphabet = string.ascii_lowercase, n = 4):
+	def de_bruijn(self, charset , n = 4, maxlen = 0x10000):
 		# string cyclic function
 		# this code base on https://github.com/Gallopsled/pwntools/blob/master/pwnlib/util/cyclic.py
 		# Taken from https://en.wikipedia.org/wiki/De_Bruijn_sequence but changed to a generator
-		"""de_bruijn(alphabet = string.ascii_lowercase, n = 4) -> generator
+		"""de_bruijn(charset = string.ascii_lowercase, n = 4) -> generator
 
 		Generator for a sequence of unique substrings of length `n`. This is implemented using a
-		De Bruijn Sequence over the given `alphabet`.
+		De Bruijn Sequence over the given `charset`.
 
-		The returned generator will yield up to ``len(alphabet)**n`` elements.
+		The returned generator will yield up to ``len(charset)**n`` elements.
 
 		Arguments:
-		  alphabet: List or string to generate the sequence over.
+		  charset: List or string to generate the sequence over.
 		  n(int): The length of subsequences that should be unique.
 		"""
-		k = len(alphabet)
+		k = len(charset)
 		a = [0] * k * n
+		sequence = []
 		def db(t, p):
+			if len(sequence) == maxlen:
+				return
 			if t > n:
 				if n % p == 0:
-					for j in range(1, p + 1):
-						yield alphabet[a[j]]
+					for j in range(1	, p + 1):
+						sequence.append(charset[a[j]])
+						if len(sequence) == maxlen:
+							return
 			else:
 				a[t] = a[t - p]
-				for c in db(t + 1, p):
-					yield c
+				db(t + 1, p)
 
 				for j in range(a[t - p] + 1, k):
 					a[t] = j
-					for c in db(t + 1, t):
-						yield c
-
-		return db(1,1)
+					db(t + 1, t)
+		db(1,1)
+		return ''.join(sequence)
 
 	# generate a cyclic string
 	def cyclic(self, length = None, n = 4):
-		alphabet = string.printable[:-6]# default charset
+		charset = []
+		charset += ["ABCDEFGHIJKLMNOPQRSTUVWXYZ"] # string.uppercase
+		charset += ["abcdefghijklmnopqrstuvwxyz"] # string.lowercase
+		charset += ["0123456789"] # string.digits
+		charset[1] = "%$-;" + re.sub("[sn]", "", charset[1])
+		charset[2] = "sn()" + charset[2]
+		mixed_charset = mixed = ''
+		k = 0
+		while True:
+			for i in range(0, len(charset)): mixed += charset[i][k:k+1]
+			if not mixed: break
+			mixed_charset += mixed
+			mixed = ''
+			k+=1
 
-		out = []
-		for ndx, c in enumerate(self.de_bruijn(alphabet, n)):
-			if length != None and ndx >= length:
-				break
-			else:
-				out.append(c)
-
-		if isinstance(alphabet, str):
-			return ''.join(out)
-		else:
-			return out
+		pattern = self.de_bruijn(mixed_charset, 3, length)
+		return pattern
 
 	def cyclic_find(self, subseq, length = 0x10000):
 		# finding subseq in generator then return pos of this subseq
@@ -762,6 +769,12 @@ class Pwn(object):
 class PwnProc(Pwn):
 	def __init__(self,**kargs):
 		super(PwnProc, self).__init__(**kargs)
+		if kargs.has_key('env'):
+			if type(kargs['env']) != dict:
+				raise Exception('Type error, env argument must be a dict')
+			else:
+				self.env = kargs['env']
+
 		self.__start_proc()
 
 	def __start_proc(self):
@@ -780,6 +793,7 @@ class PwnProc(Pwn):
 			stderr=slave,
 			close_fds=True,
 			preexec_fn=self.preexec_fn,
+			env=self.env,
 			shell=True
 		)
 		self.pid = self.proc.pid
