@@ -17,10 +17,11 @@ if [ "Linux" = "$os_name" ]; then
 
 	sudo cp -r Pwn $PYTHON
 	sudo cp sct /usr/bin/
+	sudo cp aslr.sh /usr/bin/aslr
 	sudo mkdir -p /usr/local/lib/libstdlib32/
 	sudo cp stdbuf32/libstdbuf.so /usr/local/lib/libstdlib32/
-	sudo cp stdbuf32/stdbuf32.sh /usr/local/bin/stdbuf32
-	
+	sudo cp stdbuf32/stdbuf32.sh /usr/local/bin/stdbuf32	
+
 elif [ "Darwin" = "$os_name" ]; then
 	sudo cp -r Pwn /Library/Python/2.7/site-packages/
 fi
