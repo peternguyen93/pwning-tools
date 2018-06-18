@@ -439,6 +439,7 @@ class Pwn(object):
 		if not self.con:
 			raise Exception('You must connect() first')
 		self.con.close()
+		self.con = None
 
 	def io(self):
 		print('[+] Pwned Shell.')
