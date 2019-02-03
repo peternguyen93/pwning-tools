@@ -16,7 +16,6 @@
 # /bin/sh -c "echo shell >&4; sh <&4 >&4"
 
 from __future__ import print_function
-from subprocess import Popen,PIPE,STDOUT
 from ctypes import *
 from struct import *
 from elftools.common.py3compat import bytes2str
@@ -26,18 +25,17 @@ from elftools.elf.sections import SymbolTableSection
 from elftools.elf.dynamic import DynamicSection
 from Shellcode import *
 import telnetlib
-import fcntl
 import urllib2
 import urllib
 import string
 import select
-import pty,tty
+import socket
 import json
 import os
 import re
 import sys
 
-LIBC_REPO = 'http://libc.babyphd.net/' # own libc repo
+LIBC_REPO = 'http://libc.meepwn.team/' # own libc repo
 
 # use this key to authen with libc.babyphd.net
 def load_auth_key():
@@ -322,10 +320,6 @@ class Pwn(object):
 					self.mode = self.elf.mode
 				else:
 					raise Exception('`elf` only accept string object')
-			elif key.lower() == 'proc':
-				if not os.path.exists(value):
-					raise Exception('"%s" is not exists' % value)
-				self.elf_path = value
 			elif key.lower() == 'sock':
 				# overwrite self-connection with other connection
 				if value.__class__.__name__ == '_socketobject':
@@ -389,14 +383,20 @@ class Pwn(object):
 		# timeout default value is 0.1 sec
 		if not self.con:
 			raise Exception('You must connect() first')
+		
 		s = self.con.get_socket()
 		s.setblocking(0)
+
 		recv_data = ''
+
 		while 1:
-			ready = select.select([s], [], [], timeout) # waiting reading list is available
-			if not ready[0]: # reach server input
+			try:
+				ready = select.select([s], [], [], timeout) # waiting reading list is available
+				if not ready[0]: # reach server input
+					break
+				recv_data += s.recv(1024)
+			except socket.error:
 				break
-			recv_data += self.recv(1024)
 
 		if self.debug:
 			print('[DEBUG] readlines() : ' + repr(recv_data))
@@ -764,191 +764,3 @@ class Pwn(object):
 			if saved == subseq: # if subseq equal saved then return pos of subseq
 				return pos
 		return -1
-
-# use for local Pwning
-# this class only work on Linux
-class PwnProc(Pwn):
-	def __init__(self,**kargs):
-		super(PwnProc, self).__init__(**kargs)
-		if kargs.has_key('env'):
-			if type(kargs['env']) != dict:
-				raise Exception('Type error, env argument must be a dict')
-			else:
-				self.env = kargs['env']
-
-		self.__start_proc()
-
-	def __start_proc(self):
-		# for more information, pls refer :
-		# http://rachid.koucha.free.fr/tech_corner/pty_pdip.html
-		# open new pty 
-		master,slave = pty.openpty()
-		# set to raw mode
-		tty.setraw(master)
-		tty.setraw(slave)
-
-		# binding slave in to subprocess
-		self.proc = Popen(self.elf_path,
-			stdin=slave,
-			stdout=slave,
-			stderr=slave,
-			close_fds=True,
-			preexec_fn=self.preexec_fn,
-			env=self.env,
-			shell=True
-		)
-		self.pid = self.proc.pid
-		print('[+] Start pid : %d' % self.pid)
-		# binding master to own controlled file descriptors
-		self.proc.stdin = os.fdopen(os.dup(master),"r+")
-		self.proc.stdout = os.fdopen(os.dup(master),"r+")
-		self.proc.stderr = os.fdopen(os.dup(master),"r+")
-		# close unnessesary file descriptor
-		os.close(slave)
-		os.close(master)
-
-		# set non-blocking mode
-		fd = self.proc.stdout.fileno()
-		fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-		fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
-	def pty_make_controlling_tty(self,tty_fd):
-		# borrow this code from pwntools
-		child_name = os.ttyname(tty_fd)
-		# Disconnect from controlling tty. Harmless if not already connected.
-		try:
-			fd = os.open("/dev/tty", os.O_RDWR | os.O_NOCTTY)
-			if fd >= 0:
-				os.close(fd)
-			# which exception, shouldnt' we catch explicitly .. ?
-		except OSError:
-			# Already disconnected. This happens if running inside cron.
-			pass
-
-		os.setsid()
-
-		# Verify we are disconnected from controlling tty
-		# by attempting to open it again.
-		try:
-			fd = os.open("/dev/tty", os.O_RDWR | os.O_NOCTTY)
-			if fd >= 0:
-				os.close(fd)
-				raise Exception('Failed to disconnect from ' +
-						'controlling tty. It is still possible to open /dev/tty.')
-		# which exception, shouldnt' we catch explicitly .. ?
-		except OSError:
-			# Good! We are disconnected from a controlling tty.
-			pass
-		
-		# Verify we can open child pty.
-		fd = os.open(child_name, os.O_RDWR)
-		if fd < 0:
-			raise Exception("Could not open child pty, " + child_name)
-		else:
-			os.close(fd)
-
-		# Verify we now have a controlling tty.
-		fd = os.open("/dev/tty", os.O_WRONLY)
-		if fd < 0:
-			raise Exception("Could not open controlling tty, /dev/tty")
-		else:
-			os.close(fd)
-
-	def preexec_fn(self):
-		self.pty_make_controlling_tty(1)
-
-	def can_recv(self,timeout = 0):
-		# is process die ?
-		if self.poll() != None:
-			return -1
-		# can we read output from pty ?
-		# base on situlation we can change timeout to read output.
-		child_stdout = self.proc.stdout
-		if timeout > 0:
-			return select.select([child_stdout], [], [], timeout) == ([child_stdout], [], [])
-		else:
-			return select.select([child_stdout], [], []) == ([child_stdout], [], [])
-
-	def poll(self):
-		# keep tracking child process is still alive
-		# or die, output status
-		self.proc.poll() # check child process
-		returncode = self.proc.returncode
-
-		if returncode != None:
-			print('Process %d is stopped with exit code %d' % (self.pid,returncode))
-		return returncode
-
-	def close(self):
-		# kill() child process
-		self.proc.close()
-
-	def recv(self,numb,timeout = 0.1):
-		recv_data = ''
-		if not self.can_recv(timeout):
-			return recv_data
-
-		recv_data = self.proc.stdout.read(numb)
-		return recv_data
-
-	def read(self,numb,timeout = 0.1):
-		return self.recv(numb,timeout)
-
-	def send(self,data):
-		if self.poll() >= 0:
-			return -1
-		nbytes = self.proc.stdin.write(data)
-		self.proc.stdin.flush()
-		return nbytes
-
-	def write(self,data):
-		return self.send(data) 
-
-	def read_until(self,until,timeout = 0.1):
-		out = ''
-		while until not in out:
-			# c = 
-			# if c == '':
-			# 	break
-			out += self.recv(1024,timeout)
-		return out
-
-	def read_untils(self,until_array,timeout = 0.1):
-		out = ''
-		is_found = False
-		while not is_found:
-			out += self.recv(1024,timeout)
-			for until in until_array:
-				if out in until:
-					is_found = True
-					break
-		return out
-
-	def sendline(self,data,timeout = 0.1):
-		return self.send(data + '\n')
-
-	def sendint(self,num,timeout = 0.1):
-		return self.send(str(num) + '\n')
-
-	def io(self,timeout = 0.1):
-		try:
-			while 1:
-				x = self.can_recv(timeout)
-				if x > 0:
-					# get output from child process
-					out = self.recv(1024,timeout)
-					sys.stdout.write(out)
-					sys.stdout.flush()
-				elif x == 0: # current tty interact
-					_in = sys.stdin.readline()
-					self.send(_in) # send to child process
-				else:
-					# process is die
-					break
-		except IOError:
-			pass
-
-	# export PwnProc exploit code to standalone py file
-	# that py file can run standalone without installed pwning-tools
-	def export(self):
-		pass
