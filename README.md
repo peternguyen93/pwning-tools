@@ -59,3 +59,5 @@ asm_x86('''
 	int 0x80
 ''')
 ```
+
+Port to python3
