@@ -304,7 +304,7 @@ class Pwn(object):
 
 	def up32(self, value):
 		if len(value) < 4:
-			value = value.ljust(4,'\x00')
+			value = value.ljust(4, b'\x00')
 		return unpack('<I',value)[0]
 
 	def p64(self, value):
@@ -312,7 +312,7 @@ class Pwn(object):
 
 	def up64(self, value):
 		if len(value) < 8:
-			value = value.ljust(8,'\x00')
+			value = value.ljust(8, b'\x00')
 		return unpack('<Q',value)[0]
 
 	def p16(self, value):
@@ -320,7 +320,7 @@ class Pwn(object):
 
 	def up16(self, value):
 		if len(value) < 2:
-			value = value.ljust(2,'\x00')
+			value = value.ljust(2, b'\x00')
 		return unpack('<H',value)
 
 	def p8(self, value):
@@ -331,10 +331,10 @@ class Pwn(object):
 
 	# using pack,unpack simplier by defining mode value
 
-	def pack(self,value):
+	def pack(self, value):
 		return self.p32(value) if self.mode == 0 else self.p64(value)
 
-	def unpack(self,value):
+	def unpack(self, value):
 		return self.up32(value) if self.mode == 0 else self.up64(value)
 
 	def pA(self,*args):
