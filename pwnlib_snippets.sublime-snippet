@@ -5,15 +5,17 @@
 
 from Pwn import *
 
-p = Pwn()
+p = Pwn(elf='./bin')
+
+def breakpoint(proc):
+	os.system('ps -aux | grep %s' % proc)
+	raw_input('>')
 
 def exploit(**kargs):
+	global p # use global var
 	if kargs.has_key('p'):
 		if kargs['p'].__class__.__name__ == 'Pwn': # is pwn object
 			p = kargs['p']
-	else:
-		global p # use global var
-
 	p.connect()
 
 	raw_input('Debug>')
