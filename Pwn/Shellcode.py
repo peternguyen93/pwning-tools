@@ -42,10 +42,10 @@ def asm(asm_code, arch):
 	
 		encoding, count = ks.asm(asm_code)
 		# convert list of byte code to a string
-		return encoding
+		return bytearray(encoding)
 	except KsError as err:
 		print("[ERROR] ", err)
-		return []
+		return bytearray()
 
 # wrapper popular architecure for asm function #
 
