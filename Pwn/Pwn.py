@@ -348,7 +348,7 @@ class Pwn(object):
 			ropchain = args[0]
 		else:
 			ropchain = args
-		return ''.join([self.pack(rop) for rop in ropchain])
+		return b''.join([self.pack(rop) for rop in ropchain])
 
 	'''
 		Support special operator like rotate left, rotate right
